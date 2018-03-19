@@ -1,0 +1,5 @@
+misc
+*.out
+*.mtx
+*.o
+log

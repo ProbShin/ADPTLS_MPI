@@ -1,0 +1,124 @@
+ABS_TOL_SQR	def.hpp	7
+ACBLUE	def.hpp	15
+ACCYAN	def.hpp	17
+ACGREEN	def.hpp	13
+ACMAGENTA	def.hpp	16
+ACRED	def.hpp	12
+ACRESET	def.hpp	18
+ACYELLOW	def.hpp	14
+CG_MAX_ITER	def.hpp	6
+DEF_H_	def.hpp	2
+EPSILON	def.hpp	8
+FTMtxMPI	inc/ftmtx.hpp	56
+FTMtxMPI::FTMtxMPI	src/ftmtx.cpp	/^FTMtxMPI::FTMtxMPI(const string&file_A, const stri/
+FTMtxMPI::G_	inc/ftmtx.hpp	70
+FTMtxMPI::G_nE_displs_	inc/ftmtx.hpp	73
+FTMtxMPI::G_nE_rcvcnt_	inc/ftmtx.hpp	73
+FTMtxMPI::G_sys_A_size_	inc/ftmtx.hpp	71
+FTMtxMPI::G_sys_E_size_	inc/ftmtx.hpp	72
+FTMtxMPI::dump	src/ftmtx.cpp	/^void FTMtxMPI::dump(){$/
+FTMtxMPI::error	src/ftmtx.cpp	/^void FTMtxMPI::error(const string&s1) {$/
+FTMtxMPI::error	src/ftmtx.cpp	/^void FTMtxMPI::error(const string&s1, const string/
+FTMtxMPI::fault_boom	src/ftmtx.cpp	/^void FTMtxMPI::fault_boom(int ftn, vector<int>&nF_/
+FTMtxMPI::get_sys_E_size	inc/ftmtx.hpp	/^      virtual int get_sys_E_size() const { return /
+FTMtxMPI::unordered_map	inc/ftmtx.hpp	70
+FTMtxMPI::~FTMtxMPI	inc/ftmtx.hpp	/^virtual ~FTMtxMPI(){};$/
+MPI_ADLS_CG	inc/adptls.hpp	16
+MPI_ADLS_CG::A_	inc/adptls.hpp	50
+MPI_ADLS_CG::MPI_ADLS_CG	src/adptls.cpp	/^MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const /
+MPI_ADLS_CG::b_	inc/adptls.hpp	51
+MPI_ADLS_CG::dump	src/adptls.cpp	/^void MPI_ADLS_CG::dump(){$/
+MPI_ADLS_CG::error	src/adptls.cpp	/^void MPI_ADLS_CG::error(const string&s1){ $/
+MPI_ADLS_CG::error	src/adptls.cpp	/^void MPI_ADLS_CG::error(const string&s1,const stri/
+MPI_ADLS_CG::file_A_	inc/adptls.hpp	56
+MPI_ADLS_CG::file_E_	inc/adptls.hpp	57
+MPI_ADLS_CG::file_rhs_	inc/adptls.hpp	58
+MPI_ADLS_CG::get_res_from_xloc	src/adptls.cpp	/^double MPI_ADLS_CG::get_res_from_xloc(double *xloc/
+MPI_ADLS_CG::nproc_	inc/adptls.hpp	40
+MPI_ADLS_CG::r_ft_pool_	inc/adptls.hpp	53
+MPI_ADLS_CG::rank_	inc/adptls.hpp	39
+MPI_ADLS_CG::saved_x_loc_	inc/adptls.hpp	54
+MPI_ADLS_CG::solve	src/adptls.cpp	/^void MPI_ADLS_CG::solve(){$/
+MPI_ADLS_CG::v_Ap_loc_	inc/adptls.hpp	45
+MPI_ADLS_CG::v_p_	inc/adptls.hpp	43
+MPI_ADLS_CG::v_p_loc_	inc/adptls.hpp	44
+MPI_ADLS_CG::v_r_loc_	inc/adptls.hpp	48
+MPI_ADLS_CG::v_x_	inc/adptls.hpp	46
+MPI_ADLS_CG::v_x_loc_	inc/adptls.hpp	47
+MPI_ADLS_CG::xloc2xglb	src/adptls.cpp	/^void MPI_ADLS_CG::xloc2xglb(int nloc, double* xloc/
+MPI_ADLS_CG::~MPI_ADLS_CG	src/adptls.cpp	/^MPI_ADLS_CG::~MPI_ADLS_CG(){ if(A_) delete A_; A_=/
+MPI_ADLS_HPP	inc/adptls.hpp	2
+MPI_MTX_BASIC_HPP	inc/mtx_basic.hpp	2
+MPI_MTX_FTOL_HPP	inc/ftmtx.hpp	2
+Mmain.cpp	src/main.cpp	/^int main(int argc, char const *argv[]){$/
+MtxDen	inc/mtx_basic.hpp	104
+MtxDen::MtxDen	src/mtx_basic_den.cpp	/^MtxDen::MtxDen(const string& file_in){$/
+MtxDen::MultiplyMatrix	src/mtx_basic_den.cpp	/^void MtxDen::MultiplyMatrix(int L, double *X, doub/
+MtxDen::TransMultiplyMatrix	src/mtx_basic_den.cpp	/^void MtxDen::TransMultiplyMatrix(int L, double *X,/
+MtxDen::a_	inc/mtx_basic.hpp	123
+MtxDen::cols	inc/mtx_basic.hpp	/^  int cols()const{return n_;}$/
+MtxDen::dump	src/mtx_basic_den.cpp	/^void MtxDen::dump(int indent){$/
+MtxDen::m_	inc/mtx_basic.hpp	121
+MtxDen::myerror	inc/mtx_basic.hpp	/^public: virtual void myerror(const string s) {fpri/
+MtxDen::n_	inc/mtx_basic.hpp	121
+MtxDen::rows	inc/mtx_basic.hpp	/^  int rows()const{return m_;}$/
+MtxDen::~MtxDen	inc/mtx_basic.hpp	/^public: virtual ~MtxDen(){};$/
+MtxSp	inc/mtx_basic.hpp	17
+MtxSp::MtxSp	inc/mtx_basic.hpp	/^public: MtxSp(){}; $/
+MtxSp::MtxSp	src/mtx_basic_sparse.cpp	/^MtxSp::MtxSp(const string& file_name) {$/
+MtxSp::MultiplyMatrix	src/mtx_basic_sparse.cpp	/^void MtxSp::MultiplyMatrix(int nrows, int K, doubl/
+MtxSp::MultiplyVector	src/mtx_basic_sparse.cpp	/^void MtxSp::MultiplyVector(int nrows, double*x, do/
+MtxSp::dump	src/mtx_basic_sparse.cpp	/^void MtxSp::dump(){$/
+MtxSp::error	src/mtx_basic_sparse.cpp	/^void MtxSp::error(const string&s1){$/
+MtxSp::error	src/mtx_basic_sparse.cpp	/^void MtxSp::error(const string&s1, const string&s2/
+MtxSp::~MtxSp	inc/mtx_basic.hpp	/^virtual ~MtxSp(){$/
+MtxSpMPI	inc/mtx_basic.hpp	59
+MtxSpMPI::MtxSpMPI	inc/mtx_basic.hpp	/^public: MtxSpMPI(int rnk, int np):MtxSp(),rank_(rn/
+MtxSpMPI::MtxSpMPI	src/mtx_basic_sparse.cpp	/^  MtxSpMPI::MtxSpMPI(const string& file_name, int /
+MtxSpMPI::MultiplyMatrix_Allgatherv	src/mtx_basic_sparse.cpp	/^void MtxSpMPI::MultiplyMatrix_Allgatherv(int nrows/
+MtxSpMPI::MultiplyVector_Allgatherv	src/mtx_basic_sparse.cpp	/^void MtxSpMPI::MultiplyVector_Allgatherv(int nrows/
+MtxSpMPI::dump	src/mtx_basic_sparse.cpp	/^void MtxSpMPI::dump(){$/
+MtxSpMPI::error	src/mtx_basic_sparse.cpp	/^void MtxSpMPI::error(const string&s1){$/
+MtxSpMPI::error	src/mtx_basic_sparse.cpp	/^void MtxSpMPI::error(const string&s1, const string/
+MtxSpMPI::~MtxSpMPI	inc/mtx_basic.hpp	/^virtual ~MtxSpMPI(){$/
+ROOT_ID	def.hpp	4
+a_	inc/mtx_basic.hpp	49
+cols	inc/mtx_basic.hpp	/^  virtual int  cols() const { return num_cols_; }$/
+cols	inc/mtx_basic.hpp	/^  virtual void cols(int c)  { num_cols_=c;      }$/
+cols	inc/mtx_basic.hpp	/^  virtual int cols() const { return num_cols_glb_;/
+cols_loc	inc/mtx_basic.hpp	/^  virtual int cols_loc() const { return num_cols_l/
+get_a	inc/mtx_basic.hpp	/^  vector<double>& get_a() { return a_;  }$/
+get_ia	inc/mtx_basic.hpp	/^  vector<int>&    get_ia(){ return ia_; }$/
+get_ja	inc/mtx_basic.hpp	/^  vector<int>&    get_ja(){ return ja_; }$/
+get_row_displs	inc/mtx_basic.hpp	/^  vector<int>& get_row_displs(){ return row_displs/
+get_row_rcvcnt	inc/mtx_basic.hpp	/^  vector<int>& get_row_rcvcnt(){ return row_rcvcnt/
+ia_	inc/mtx_basic.hpp	47
+ja_	inc/mtx_basic.hpp	48
+mm_is_valid	src/mmio.cpp	/^int mm_is_valid(MM_typecode matcode)$/
+mm_read_banner	src/mmio.cpp	/^int mm_read_banner(FILE *f, MM_typecode *matcode)$/
+mm_read_mtx_array_size	src/mmio.cpp	/^int mm_read_mtx_array_size(FILE *f, int *M, int *N/
+mm_read_mtx_crd	src/mmio.cpp	/^int mm_read_mtx_crd(char *fname, int *M, int *N, i/
+mm_read_mtx_crd_data	src/mmio.cpp	/^int mm_read_mtx_crd_data(FILE *f, int M, int N, in/
+mm_read_mtx_crd_entry	src/mmio.cpp	/^int mm_read_mtx_crd_entry(FILE *f, int *I, int *J,/
+mm_read_mtx_crd_size	src/mmio.cpp	/^int mm_read_mtx_crd_size(FILE *f, int *M, int *N, /
+mm_read_unsymmetric_sparse	src/mmio.cpp	/^int mm_read_unsymmetric_sparse(const char *fname, /
+mm_strdup	src/mmio.cpp	/^char *mm_strdup(const char *s)$/
+mm_typecode_to_str	src/mmio.cpp	/^char  *mm_typecode_to_str(MM_typecode matcode)$/
+mm_write_banner	src/mmio.cpp	/^int mm_write_banner(FILE *f, MM_typecode matcode)$/
+mm_write_mtx_array_size	src/mmio.cpp	/^int mm_write_mtx_array_size(FILE *f, int M, int N)/
+mm_write_mtx_crd	src/mmio.cpp	/^int mm_write_mtx_crd(char fname[], int M, int N, i/
+mm_write_mtx_crd_size	src/mmio.cpp	/^int mm_write_mtx_crd_size(FILE *f, int M, int N, i/
+nproc_	inc/mtx_basic.hpp	90
+num_cols_	inc/mtx_basic.hpp	53
+num_cols_glb_	inc/mtx_basic.hpp	97
+num_cols_loc_	inc/mtx_basic.hpp	96
+num_rows_	inc/mtx_basic.hpp	52
+num_rows_glb_	inc/mtx_basic.hpp	97
+num_rows_loc_	inc/mtx_basic.hpp	96
+rank_	inc/mtx_basic.hpp	89
+row_displs_	inc/mtx_basic.hpp	93
+row_rcvcnt_	inc/mtx_basic.hpp	92
+rows	inc/mtx_basic.hpp	/^  virtual int  rows() const { return num_rows_; }$/
+rows	inc/mtx_basic.hpp	/^  virtual void rows(int r)  { num_rows_=r;      }$/
+rows	inc/mtx_basic.hpp	/^  virtual int rows() const { return num_rows_glb_;/
+rows_loc	inc/mtx_basic.hpp	/^  virtual int rows_loc() const { return num_rows_l/
