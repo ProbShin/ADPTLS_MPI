@@ -359,7 +359,8 @@ void FTMtxMPI::fault_boom(int ftn){
 
 
   ia.clear(); ia.reserve(n+1);
-  ja.clear();
+  ja.clear(); ja.reserve(Gja.size());
+  a.clear();  a.reserve(Ga.size());
 
   const int RBeg = nA_displs[rank];
   for(auto r: row_indexs){
