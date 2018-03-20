@@ -149,9 +149,26 @@ FTMtxMPI::FTMtxMPI(const string&file_A, const string&file_E, int rank, int nproc
   //  }
   //}// prevent Aa, Aia and Aja been used further
 
-  Gia.swap(A->get_ia());
-  Gja.swap(A->get_ja());
-  Ga .swap(A->get_a ());
+  //Gia.swap(A->get_ia());
+  //Gja.swap(A->get_ja());
+  //Ga .swap(A->get_a ());
+  
+
+
+  vector<double>&Aa = A->get_a();
+  vector<int>&Aia   = A->get_ia();
+  vector<int>&Aja   = A->get_ja();
+  G.clear(); G.resize(nloc, nullptr);
+  for(int it=0, itEnd = nA_rcvcnt[rank_]; it<itEnd; it++) { //G+=A
+    int jt=Aia[it];
+    const int jtEnd = Aia[it+1];
+    if(jt==jtEnd) continue;
+    const int maxJ = Aja[jtEnd-1];
+    G[it]=new double[maxJ+1]();
+    for(; jt!=jtEnd; jt++){
+      G[it][Aja[jt]]=Aa[jt];
+    }
+  }
   delete A;     A  =nullptr;
    
   for(int i=nA_displs[rank], iEnd=nA_displs[rank+1],iGAE=0; i<iEnd; i++,iGAE++) { //GAE += AE
@@ -357,7 +374,47 @@ void FTMtxMPI::fault_boom(int ftn){
 #endif 
 
 
+  ia.clear(); ia.reserve(n+1);
+  ja.clear();
+  a.clear(); 
 
+  const int RBeg = nA_displs[rank];
+  for(auto r: row_indexs){
+    ia.push_back((signed)ja.size());
+    if(r<n){
+      for(int j=0; j<n; j++){
+        int c = col_indexs[j];
+        if(c<n){
+          double *Gr = G[r-RBeg];
+          if(!Gr) continue;
+          ja.push_back(j);
+           a.push_back(Gr[c]);
+        }
+        else{
+          ja.push_back(j);
+          a .push_back(GAE[(r-RBeg)*k+c-n]);
+        }
+      }
+    }
+    else{
+      for(int j=0,jEnd=n; j<jEnd; j++) {
+        ja.push_back(j);
+        int c = col_indexs[j];
+        if(c<n)
+          a.push_back(GEA[(r-n)/nproc*n+c]);
+        else
+          a.push_back(GEAE[(r-n)/nproc*k+c-n]);
+      }   
+    }
+  }
+  ia.push_back((signed)ja.size());
+
+
+
+
+
+
+/*
   ia.clear(); ia.reserve(n+1);
   ja.clear(); ja.reserve(Gja.size());
   a.clear();  a.reserve(Ga.size());
@@ -395,7 +452,7 @@ void FTMtxMPI::fault_boom(int ftn){
     }
   }
   ia.push_back((signed)ja.size());
-
+*/
   /*
   unordered_map<int, unordered_map<int, double> >::const_iterator GEnd = G.end();
   unordered_map<int, unordered_map<int, double> >::const_iterator Gr;
@@ -516,6 +573,7 @@ void FTMtxMPI::Atut_sub_mtx_times_x_saved(vector<int> &rows, vector<int>&cols, v
   }
   */
 
+/*
   const int n = G_sys_A_size_;
   const int k = G_sys_E_size_;        
   const int RBeg     = row_displs_[rank_];
@@ -550,8 +608,39 @@ void FTMtxMPI::Atut_sub_mtx_times_x_saved(vector<int> &rows, vector<int>&cols, v
       }
     }
   }
+*/
 
+  const int n = G_sys_A_size_;
+  const int k = G_sys_E_size_;        
+  const int RBeg     = row_displs_[rank_];
+  const int nCols = (signed)cols.size();
+  const int nRows = (signed)rows.size();
 
+  for(int i=0; i<nCols; i++) out[i]=0;
+  for(int i=0; i<nRows; i++){
+    int    r = rows[i];
+    double a = args[i];
+    if(r<n){
+      for(int j=0; j<nCols; j++){
+        int c = cols[j];
+        if(c<n){
+          double *Gr = G[r-RBeg];
+          if(!Gr) continue;
+          out[j]+=a*Gr[c];
+        }
+        else{
+          out[j]+=a*GAE[(r-RBeg)*k+c-n];
+        }
+      }
+    }
+    else{
+      for(int j=0; j<nCols; j++){
+        int c = cols[j];
+        if(c<n) out[j]+=a*GEA[ (r-n)/nproc_*n+c];
+        else    out[j]+=a*GEAE[(r-n)/nproc_*n+c-n];
+      }
+    }
+  }
 
 
 }
@@ -569,7 +658,9 @@ void FTMtxMPI::dump(){
   fprintf(stderr, "n which named as G_sys_A_size = %d, k which named as G_sys_E_size = %d\n",G_sys_A_size_, G_sys_E_size_);
   int cnt=0;
 
+  fprintf(stderr, "G (%d)\n",(signed)G.size());
 
+/*
   fprintf(stderr, "Gia (%d) :",(signed)Gia.size());
   for(auto x: Gia) fprintf(stderr," %d",x); fprintf(stderr,"\n");
 
@@ -578,6 +669,7 @@ void FTMtxMPI::dump(){
 
   fprintf(stderr, "Ga  (%d) :",(signed)Ga.size());
   for(auto x: Ga) fprintf(stderr," %g",x); fprintf(stderr,"\n");
+ */
   /*
   vector<int> candi;
   for(auto p=G_.begin(), pEnd=G_.end(); p!=pEnd; p++)
