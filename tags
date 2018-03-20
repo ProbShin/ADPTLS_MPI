@@ -10,18 +10,23 @@ CG_MAX_ITER	def.hpp	6
 DEF_H_	def.hpp	2
 EPSILON	def.hpp	8
 FTMtxMPI	inc/ftmtx.hpp	56
+FTMtxMPI::Atut_sub_mtx_times_x_saved	src/ftmtx.cpp	/^void FTMtxMPI::Atut_sub_mtx_times_x_saved(vector<i/
 FTMtxMPI::FTMtxMPI	src/ftmtx.cpp	/^FTMtxMPI::FTMtxMPI(const string&file_A, const stri/
-FTMtxMPI::G_	inc/ftmtx.hpp	70
-FTMtxMPI::G_nE_displs_	inc/ftmtx.hpp	73
-FTMtxMPI::G_nE_rcvcnt_	inc/ftmtx.hpp	73
-FTMtxMPI::G_sys_A_size_	inc/ftmtx.hpp	71
-FTMtxMPI::G_sys_E_size_	inc/ftmtx.hpp	72
+FTMtxMPI::GAE	inc/ftmtx.hpp	75
+FTMtxMPI::GEA	inc/ftmtx.hpp	75
+FTMtxMPI::GEAE	inc/ftmtx.hpp	75
+FTMtxMPI::G_nE_displs_	inc/ftmtx.hpp	79
+FTMtxMPI::G_nE_rcvcnt_	inc/ftmtx.hpp	79
+FTMtxMPI::G_sys_A_size_	inc/ftmtx.hpp	77
+FTMtxMPI::G_sys_E_size_	inc/ftmtx.hpp	78
+FTMtxMPI::Ga	inc/ftmtx.hpp	73
+FTMtxMPI::Gia	inc/ftmtx.hpp	71
+FTMtxMPI::Gja	inc/ftmtx.hpp	72
 FTMtxMPI::dump	src/ftmtx.cpp	/^void FTMtxMPI::dump(){$/
 FTMtxMPI::error	src/ftmtx.cpp	/^void FTMtxMPI::error(const string&s1) {$/
 FTMtxMPI::error	src/ftmtx.cpp	/^void FTMtxMPI::error(const string&s1, const string/
-FTMtxMPI::fault_boom	src/ftmtx.cpp	/^void FTMtxMPI::fault_boom(int ftn, vector<int>&nF_/
+FTMtxMPI::fault_boom	src/ftmtx.cpp	/^void FTMtxMPI::fault_boom(int ftn){$/
 FTMtxMPI::get_sys_E_size	inc/ftmtx.hpp	/^      virtual int get_sys_E_size() const { return /
-FTMtxMPI::unordered_map	inc/ftmtx.hpp	70
 FTMtxMPI::~FTMtxMPI	inc/ftmtx.hpp	/^virtual ~FTMtxMPI(){};$/
 MPI_ADLS_CG	inc/adptls.hpp	16
 MPI_ADLS_CG::A_	inc/adptls.hpp	50
@@ -33,7 +38,7 @@ MPI_ADLS_CG::error	src/adptls.cpp	/^void MPI_ADLS_CG::error(const string&s1,cons
 MPI_ADLS_CG::file_A_	inc/adptls.hpp	56
 MPI_ADLS_CG::file_E_	inc/adptls.hpp	57
 MPI_ADLS_CG::file_rhs_	inc/adptls.hpp	58
-MPI_ADLS_CG::get_res_from_xloc	src/adptls.cpp	/^double MPI_ADLS_CG::get_res_from_xloc(double *xloc/
+MPI_ADLS_CG::get_rtol_from_xloc	src/adptls.cpp	/^double MPI_ADLS_CG::get_rtol_from_xloc(double *xlo/
 MPI_ADLS_CG::nproc_	inc/adptls.hpp	40
 MPI_ADLS_CG::r_ft_pool_	inc/adptls.hpp	53
 MPI_ADLS_CG::rank_	inc/adptls.hpp	39

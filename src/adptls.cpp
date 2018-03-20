@@ -73,7 +73,7 @@ void MPI_ADLS_CG::solve(){
   A->MultiplyVector(nloc, p, Ap_loc);
   pAp_loc=.0; for(int i=0; i<nloc; i++) pAp_loc+=p_loc[i]*Ap_loc[i];  
   MPI_Allreduce(&pAp_loc, &pAp, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  
+ 
   int cgit=1;
   for(cgit=1;cgit<=CG_MAX_ITER;cgit++){
     const double alpha = prev_rddot / pAp;

@@ -66,8 +66,14 @@ private:
 virtual void error(const string& s1);
 virtual void error(const string& s1,const string&s2);
 
+
 private: 
-unordered_map<int, unordered_map<int,double>> G_;
+vector<int>    Gia;
+vector<int>    Gja;
+vector<double> Ga;
+
+vector<double> GAE, GEA, GEAE;
+//unordered_map<int, unordered_map<int,double>> G_;
 int G_sys_A_size_;   //n
 int G_sys_E_size_;   //k
 vector<int> G_nE_rcvcnt_, G_nE_displs_;  //non-even splite
