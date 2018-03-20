@@ -343,6 +343,7 @@ void FTMtxMPI::fault_boom(int ftn){
     }
   }
 
+/*
 #ifdef DEBUG_SHOW_DETAILS
   MPI_Barrier(MPI_COMM_WORLD);
   {
@@ -372,8 +373,10 @@ void FTMtxMPI::fault_boom(int ftn){
   }
   MPI_Barrier(MPI_COMM_WORLD);
 #endif 
+*/
 
-
+  double ttoal=-MPI_Wtime();
+  double t1=0,t2=0,t3=0,t4=0;
   ia.clear(); ia.reserve(n+1);
   ja.clear();
   a.clear(); 
@@ -385,14 +388,18 @@ void FTMtxMPI::fault_boom(int ftn){
       for(int j=0; j<n; j++){
         int c = col_indexs[j];
         if(c<n){
+            t1-=MPI_Wtime();
           double *Gr = G[r-RBeg];
           if(!Gr) continue;
           ja.push_back(j);
            a.push_back(Gr[c]);
+           t1+=MPI_Wtime();
         }
         else{
+            t2-=MPI_Wtime();
           ja.push_back(j);
           a .push_back(GAE[(r-RBeg)*k+c-n]);
+            t2+=MPI_Wtime();
         }
       }
     }
@@ -400,15 +407,25 @@ void FTMtxMPI::fault_boom(int ftn){
       for(int j=0,jEnd=n; j<jEnd; j++) {
         ja.push_back(j);
         int c = col_indexs[j];
-        if(c<n)
+        if(c<n){
+            t3-=MPI_Wtime();
           a.push_back(GEA[(r-n)/nproc*n+c]);
-        else
+            t3+=MPI_Wtime();
+        }
+        else{
+            t4-=MPI_Wtime();
           a.push_back(GEAE[(r-n)/nproc*k+c-n]);
+            t4+=MPI_Wtime();
+        }
       }   
     }
   }
   ia.push_back((signed)ja.size());
+    ttoal+=MPI_Wtime();
 
+    if(rank==0) {
+        printf("TIME_in_BOOM %d (%d %d %d %d)",ttoal, t1,t2,t3,t4);
+    }
 
 
 
