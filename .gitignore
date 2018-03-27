@@ -1,5 +1,6 @@
 run.sh
 misc
+test_case
 *.out
 *.mtx
 *.o
