@@ -16,6 +16,7 @@ using namespace std;
 class MPI_ADLS_CG {
 public: MPI_ADLS_CG(const string &f_A, const string& f_E, 
             const string& f_rhs, 
+            const string& ftfa_base,
             vector<int>&vfts,
             int rank,int nproc);
 
@@ -47,10 +48,12 @@ public:
   vector<double> v_x_loc_;    // x local
   vector<double> v_r_loc_;    //res local
 
-  FTMtxMPI *A_;
+  FTMtxMPI *Atut_;
+  MtxSpMPI *A_;
   MtxDen b_;
 
   vector<int> r_ft_pool_;
+  vector<string> r_ft_fA_pool_;
   vector<double> saved_x_loc_;
 
 protected: string file_A_;

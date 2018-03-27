@@ -14,6 +14,9 @@
 FTMtxMPI::FTMtxMPI(const string&file_A, const string&file_E, int rank, int nproc, int ftn) :
  MtxSpMPI(rank,nproc)
 {
+
+  
+  
   int &n    = G_sys_A_size_;
   int &k    = G_sys_E_size_; 
   vector<int>&nA_rcvcnt = row_rcvcnt_;
@@ -24,7 +27,7 @@ FTMtxMPI::FTMtxMPI(const string&file_A, const string&file_E, int rank, int nproc
 
   MtxSpMPI *A = new MtxSpMPI(file_A, rank_, nproc_);
   MtxDen   *E = new MtxDen(file_E);
-  
+
   if(A->rows() != E->rows()) error(file_A,"file_A rows != file_E rows ");
   // local sizes
   n = E->rows();
@@ -60,6 +63,7 @@ FTMtxMPI::FTMtxMPI(const string&file_A, const string&file_E, int rank, int nproc
   for(auto &x : nMtx_rcvcnt) x*=k;
   for(auto &x : nMtx_displs) x*=k;
   A->MultiplyMatrix_Allgatherv(nloc, k, &(E->a_[0]), WorkSpaceAEloc, AE, &nMtx_rcvcnt[0], &nMtx_displs[0]);
+
 
   /*
 #ifdef DEBUG_SHOW_DETAILS
@@ -149,27 +153,37 @@ FTMtxMPI::FTMtxMPI(const string&file_A, const string&file_E, int rank, int nproc
   //  }
   //}// prevent Aa, Aia and Aja been used further
 
-  //Gia.swap(A->get_ia());
-  //Gja.swap(A->get_ja());
-  //Ga .swap(A->get_a ());
-  
-
-
+//double t_read = -MPI_Wtime();
+  Gia.swap(A->get_ia());
+  Gja.swap(A->get_ja());
+  Ga .swap(A->get_a ());
+//t_read += MPI_Wtime(); if(rank==0) printf("t_read %g \n",t_read);
+/*  //vector<double*> and vector<int>
+if(rank==0) printf("t_read begin counting");
+double t_read = -MPI_Wtime();
   vector<double>&Aa = A->get_a();
   vector<int>&Aia   = A->get_ia();
   vector<int>&Aja   = A->get_ja();
   G.clear(); G.resize(nloc, nullptr);
+  Goff.clear(); Goff.resize(nloc, 0);
   for(int it=0, itEnd = nA_rcvcnt[rank_]; it<itEnd; it++) { //G+=A
     int jt=Aia[it];
     const int jtEnd = Aia[it+1];
     if(jt==jtEnd) continue;
     const int maxJ = Aja[jtEnd-1];
-    G[it]=new double[maxJ+1]();
+    const int minJ = Aja[jt];
+    G[it]=new double[maxJ-minJ+1]();
+    Goff[it] = minJ;
     for(; jt!=jtEnd; jt++){
-      G[it][Aja[jt]]=Aa[jt];
+      G[it][Aja[jt]-minJ]=Aa[jt];
     }
   }
-  delete A;     A  =nullptr;
+  
+t_read += MPI_Wtime(); if(rank==0) printf("t_read %g  ",t_read);
+*/
+
+
+delete A;     A  =nullptr;
    
   for(int i=nA_displs[rank], iEnd=nA_displs[rank+1],iGAE=0; i<iEnd; i++,iGAE++) { //GAE += AE
     const int itk = i*k;
@@ -375,8 +389,10 @@ void FTMtxMPI::fault_boom(int ftn){
 #endif 
 */
 
+  /*
   double ttoal=-MPI_Wtime();
   double t1=0,t2=0,t3=0,t4=0;
+  double t12=0, t34=0;
   ia.clear(); ia.reserve(n+1);
   ja.clear();
   a.clear(); 
@@ -385,53 +401,49 @@ void FTMtxMPI::fault_boom(int ftn){
   for(auto r: row_indexs){
     ia.push_back((signed)ja.size());
     if(r<n){
+      t12-=MPI_Wtime();
       for(int j=0; j<n; j++){
         int c = col_indexs[j];
         if(c<n){
-            t1-=MPI_Wtime();
           double *Gr = G[r-RBeg];
           if(!Gr) continue;
           ja.push_back(j);
-           a.push_back(Gr[c]);
-           t1+=MPI_Wtime();
+           a.push_back(Gr[c-Goff[r-RBeg]]);
         }
         else{
-            t2-=MPI_Wtime();
           ja.push_back(j);
           a .push_back(GAE[(r-RBeg)*k+c-n]);
-            t2+=MPI_Wtime();
         }
       }
+      t12+=MPI_Wtime();
     }
     else{
+      t34-=MPI_Wtime();
       for(int j=0,jEnd=n; j<jEnd; j++) {
         ja.push_back(j);
         int c = col_indexs[j];
         if(c<n){
-            t3-=MPI_Wtime();
           a.push_back(GEA[(r-n)/nproc*n+c]);
-            t3+=MPI_Wtime();
         }
         else{
-            t4-=MPI_Wtime();
           a.push_back(GEAE[(r-n)/nproc*k+c-n]);
-            t4+=MPI_Wtime();
         }
-      }   
+      } 
+      t34+=MPI_Wtime();
     }
   }
   ia.push_back((signed)ja.size());
     ttoal+=MPI_Wtime();
 
     if(rank==0) {
-        printf("TIME_in_BOOM %d (%d %d %d %d)",ttoal, t1,t2,t3,t4);
+        printf("TIME_in_BOOM %g %g %g",ttoal, t12,t34);
     }
 
+*/
 
 
 
-
-/*
+  //double ttoal=-MPI_Wtime();
   ia.clear(); ia.reserve(n+1);
   ja.clear(); ja.reserve(Gja.size());
   a.clear();  a.reserve(Ga.size());
@@ -444,11 +456,12 @@ void FTMtxMPI::fault_boom(int ftn){
         int c = col_indexs[j];
         if(c<n){
           for(int jt=Gia[r-RBeg],jtEnd=Gia[r-RBeg+1]; jt<jtEnd; jt++) {
-            if(Gja[jt]==c) {
-              ja.push_back(j);
-               a.push_back(Ga[jt]);
-               break;
-            }
+            int tmpc = Gja[jt];
+            if(tmpc<c) continue;
+            else if(tmpc>c) break;
+            ja.push_back(j);
+            a.push_back(c);
+            break;
           }
         }
         else{
@@ -469,7 +482,12 @@ void FTMtxMPI::fault_boom(int ftn){
     }
   }
   ia.push_back((signed)ja.size());
-*/
+  //ttoal+=MPI_Wtime();
+  
+  //if(rank_==0) printf("fault_boom_time %g\n",ttoal);
+
+  
+  
   /*
   unordered_map<int, unordered_map<int, double> >::const_iterator GEnd = G.end();
   unordered_map<int, unordered_map<int, double> >::const_iterator Gr;
@@ -590,7 +608,6 @@ void FTMtxMPI::Atut_sub_mtx_times_x_saved(vector<int> &rows, vector<int>&cols, v
   }
   */
 
-/*
   const int n = G_sys_A_size_;
   const int k = G_sys_E_size_;        
   const int RBeg     = row_displs_[rank_];
@@ -599,17 +616,18 @@ void FTMtxMPI::Atut_sub_mtx_times_x_saved(vector<int> &rows, vector<int>&cols, v
 
   for(int i=0; i<nCols; i++) out[i]=0;
   for(int i=0; i<nRows; i++){
-    int r = rows[i];
+    int    r = rows[i];
     double a = args[i];
     if(r<n){
       for(int j=0; j<nCols; j++){
         int c = cols[j];
         if(c<n){
           for(int jt=Gia[r-RBeg], jtEnd=Gia[r-RBeg+1]; jt<jtEnd; jt++){
-            if(Gja[jt]==c){
-              out[j]+=a*Ga[jt];
-              break;
-            }
+            int tmpc = Gja[jt];
+            if(tmpc<c) continue;
+            else if(tmpc>c) break;
+            out[j]+=a*Ga[jt];
+            break;
           }
         }
         else{
@@ -625,8 +643,8 @@ void FTMtxMPI::Atut_sub_mtx_times_x_saved(vector<int> &rows, vector<int>&cols, v
       }
     }
   }
-*/
 
+  /* //vector<double*>
   const int n = G_sys_A_size_;
   const int k = G_sys_E_size_;        
   const int RBeg     = row_displs_[rank_];
@@ -658,6 +676,7 @@ void FTMtxMPI::Atut_sub_mtx_times_x_saved(vector<int> &rows, vector<int>&cols, v
       }
     }
   }
+  */
 
 
 }
@@ -675,7 +694,7 @@ void FTMtxMPI::dump(){
   fprintf(stderr, "n which named as G_sys_A_size = %d, k which named as G_sys_E_size = %d\n",G_sys_A_size_, G_sys_E_size_);
   int cnt=0;
 
-  fprintf(stderr, "G (%d)\n",(signed)G.size());
+  //fprintf(stderr, "G (%d)\n",(signed)G.size());
 
 /*
   fprintf(stderr, "Gia (%d) :",(signed)Gia.size());

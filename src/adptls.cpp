@@ -16,7 +16,7 @@ void MPI_ADLS_CG::solve(){
   stringstream ss;
   const int &rank  = rank_;
   const int &nproc = nproc_;   
-  FTMtxMPI* &A     = A_;      //A
+  MtxSpMPI* &A     = A_;      //A
   MtxDen    &b     = b_;      //rhs
 
   MtxSpMPI* A4Res = new MtxSpMPI(file_A_, rank, nproc);
@@ -103,8 +103,8 @@ void MPI_ADLS_CG::solve(){
       ftn_loc = ftn_rcvcnt[rank];
 
       // update A
-      A->fault_boom(ftn);
-
+      delete A; A =new MtxSpMPI(r_ft_fA_pool_.back().c_str(), rank, nproc);
+      r_ft_fA_pool_.pop_back();
       row_rcvcnt = &((A->get_row_rcvcnt())[0]);
       row_displs = &((A->get_row_displs())[0]);
       disp  = row_displs[rank];
@@ -139,7 +139,7 @@ void MPI_ADLS_CG::solve(){
         }
       }
 
-      A->Atut_sub_mtx_times_x_saved(ft_related_rows, ft_related_cols, saved_x_loc_, ft_b_per_rank); 
+      Atut_->Atut_sub_mtx_times_x_saved(ft_related_rows, ft_related_cols, saved_x_loc_, ft_b_per_rank); 
 
       double *ft_b          = new double[n];
       MPI_Allreduce(ft_b_per_rank, ft_b, n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -342,7 +342,7 @@ void MPI_ADLS_CG::get_res(MtxSpMPI*org, double* bloc, double* Axloc){
 // ============================================================================
 // Construction 
 // ============================================================================
-MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_rhs, vector<int>&vfts,  int rank, int nproc)
+MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_rhs, const string& ftfa_base, vector<int>&vfts,  int rank, int nproc)
 : rank_(rank),
   nproc_(nproc),
   file_A_(f_A),
@@ -351,7 +351,8 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   A_(nullptr),
   b_(f_rhs)
 {
-  A_ = new FTMtxMPI(f_A, f_E, rank, nproc, 0);
+  A_    = new MtxSpMPI(f_A, rank, nproc);
+  Atut_ = new FTMtxMPI(f_A, f_E, rank, nproc, 0);
 
   int nloc = A_->rows_loc();
   v_p_loc_.assign(nloc,.0);
@@ -367,7 +368,12 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   for(int i=vfts.size()-1; i>=0; i--) {
     r_ft_pool_.emplace_back(vfts[i]);
   }
-
+  stringstream ss;
+  for(int i=vfts.size(); i>0; i--) {
+    ss<<ftfa_base<<"_np"<<nproc<<"_k"<<Atut_->get_sys_E_size()<<"_s"<<i<<".mtx";
+    r_ft_fA_pool_.push_back(ss.str());
+    ss.str("");
+  }
 
   return;
 }
@@ -376,7 +382,7 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
 // ============================================================================
 // DeConstruction
 // ============================================================================
-MPI_ADLS_CG::~MPI_ADLS_CG(){ if(A_) delete A_; A_=nullptr;}
+MPI_ADLS_CG::~MPI_ADLS_CG(){ if(A_) delete A_; A_=nullptr; if(Atut_) delete Atut_; Atut_=nullptr;}
 
 
 

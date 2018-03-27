@@ -34,6 +34,9 @@ public:
   vector<int>&    get_ja(){ return ja_; }
   vector<double>& get_a() { return a_;  }
 
+
+  double wocao_a(int i) { return a_[i]; }
+
   void MultiplyVector(int nrows, double* x, double *y);             
   void MultiplyMatrix(int nrows, int ncols, double* x, double *y);     
 

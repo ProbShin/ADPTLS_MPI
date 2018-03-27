@@ -21,7 +21,7 @@ int main(int argc, char const *argv[]){
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
-  string file_A, file_E, file_rhs;
+  string file_A, file_E, file_rhs, ftfa;
   vector<int> vfts;
  
   if(argc<=1) {printf("usage: check run.sh\n"); MPI_Finalize(); exit(1); }
@@ -30,7 +30,7 @@ int main(int argc, char const *argv[]){
     else if(!strcmp(argv[i], "-fE"   )) file_E = argv[++i];
     else if(!strcmp(argv[i], "-rhs"  )) file_rhs = argv[++i];
     else if(!strcmp(argv[i], "-fts"))  for(int j=i+1; j<argc && argv[j][0]!='-'; j++, i++) vfts.push_back(atoi(argv[j]));
-    //else if(!strcmp(argv[i], "-ftn"))  for(int j=i+1; j<argc && argv[j][0]!='-'; j++, i++) vftn.push_back(atoi(argv[j]));
+    else if(!strcmp(argv[i], "-ftbase"))  ftfa = argv[++i];
     //else if(!strcmp(argv[i], "-aug"   )) file_aug = argv[++i];
     //else if(!strcmp(argv[i], "-fAtut"  )) file_aug_faulted = argv[++i];
     //else if(!strcmp(argv[i], "-theox")) file_theo= argv[++i];
@@ -43,12 +43,13 @@ int main(int argc, char const *argv[]){
     //MtxSp A1(file_A); 
     //A1.dump();
 
-    //FTMtxMPI A3(file_A, file_E, rank, nproc,2);
+    //FTMtxMPI A3(file_A, file_E, rank, nproc,1);
     //A3.dump();
     //MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Finalize(); return 0;
   }
-  //MPI_Finalize(); return 0;
-  MPI_ADLS_CG adcg(file_A, file_E, file_rhs, vfts, rank, nproc);
+
+  MPI_ADLS_CG adcg(file_A, file_E, file_rhs, ftfa, vfts, rank, nproc);
   
   MPI_Barrier(MPI_COMM_WORLD);
   
@@ -59,7 +60,7 @@ int main(int argc, char const *argv[]){
   /*if(rank==ROOT_ID){
     fprintf(stdout,"\nx(%d):\n",(int)adcg.v_x_.size());
     for(auto x : adcg.v_x_) fprintf(stdout, "%lg ", x);
-    fprintf(stdout, "\n");
+    printf(stdout, "\n");
   }*/
 
   

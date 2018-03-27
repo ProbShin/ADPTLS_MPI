@@ -55,7 +55,8 @@ using namespace std;
 
 class FTMtxMPI : public MtxSpMPI{
 public: FTMtxMPI(const string&file_A, const string&file_E, int rnk, int np, int ftn=0); 
-virtual ~FTMtxMPI(){for(auto x: G) if(x) {delete []x; x=nullptr;} };
+virtual ~FTMtxMPI(){ //for(auto x: G) if(x) {delete []x; x=nullptr;}
+};
 
 public:
       virtual int get_sys_E_size() const { return G_sys_E_size_; }
@@ -68,10 +69,12 @@ virtual void error(const string& s1,const string&s2);
 
 
 private: 
-vector<double*>  G;
-//vector<int>    Gia;
-//vector<int>    Gja;
-//vector<double> Ga;
+//vector<double*>  G;
+//vector<int>  Goff;
+
+vector<int>    Gia;
+vector<int>    Gja;
+vector<double> Ga;
 
 vector<double> GAE, GEA, GEAE;
 //unordered_map<int, unordered_map<int,double>> G_;
