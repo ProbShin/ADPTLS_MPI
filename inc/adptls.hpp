@@ -13,6 +13,38 @@ using namespace std;
 // ============================================================================
 // MPI version of Adaptive Liner Solver (CG)
 // ============================================================================
+
+class LSFaultMPI{
+  public:
+    LSFaultMPI(const string&fA, const string&fE, const string& fb, vector<int>&vfts, const string& ftfa_base, const int rk, const int np);
+    ~LSFaultMPI(){
+      if(Atut) delete Atut;
+      if(A4Res) delete A4Res;
+      if(E4Res) delete E4Res;
+      if(b4Res) delete b4Res;
+      if(Eb)    delete []Eb;
+    }
+  public:
+    int cnt()const{ return ftn; }
+    int next_position() const { return rstep_pool.empty()?-1:rstep_pool.back(); }
+    void boom(MtxSpMPI* &A, double* nby1, double* x_loc, vector<double>&saved_x_loc, double *bloc, double*r_loc, double& rddot_loc, double& rddot, double&beta);
+
+
+  private:
+    int rank, nproc;
+    int ftn;
+    vector<int>    rstep_pool;
+    vector<string> rfA_pool;
+    FTMtxMPI *Atut;
+  public:
+    MtxSpMPI *A4Res;
+    MtxDen   *E4Res;
+    MtxDen   *b4Res;
+    double   *Eb;    //E'*b
+};
+
+
+
 class MPI_ADLS_CG {
 public: MPI_ADLS_CG(const string &f_A, const string& f_E, 
             const string& f_rhs, 
@@ -48,12 +80,15 @@ public:
   vector<double> v_x_loc_;    // x local
   vector<double> v_r_loc_;    //res local
 
-  FTMtxMPI *Atut_;
+  //FTMtxMPI *Atut_;
   MtxSpMPI *A_;
   MtxDen b_;
+  
+  LSFaultMPI *faults;
 
-  vector<int> r_ft_pool_;
-  vector<string> r_ft_fA_pool_;
+
+  //vector<int> r_ft_pool_;
+  //vector<string> r_ft_fA_pool_;
   vector<double> saved_x_loc_;
 
 protected: string file_A_;

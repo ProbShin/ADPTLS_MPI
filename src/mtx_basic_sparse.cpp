@@ -6,83 +6,55 @@
  ************************************************************************/
 #include "mtx_basic.hpp"
 #include <unordered_set>
-
+#include <fstream>
 // ============================================================================
 // constructor of sparse matrix using MPI
 // ============================================================================
-  MtxSpMPI::MtxSpMPI(const string& file_name, int rank, int nproc)
+  MtxSpMPI::MtxSpMPI(const string& file_name, const string&fmt, int rank, int nproc)
 : MtxSp(),
   rank_(rank),
   nproc_(nproc)
 {
-  if(file_name.empty()) error("file name is empty()\n");
-  FILE*fp = fopen(file_name.c_str(), "r");
-  if(!fp) error(file_name," cannot be opened\n");
-  MM_typecode matcode;
-  mm_read_banner(fp, &matcode);
-  if(   !mm_is_matrix(matcode)
-      ||!mm_is_sparse(matcode)
-      ||!mm_is_symmetric(matcode) ) {
-    fclose(fp);
-    fp=nullptr;
-    error(file_name," MartixMarket format error, only accept\n"
-        "MatrixMarket matrix coordinate real/int symmetric\n");
-  }
-
-  int r,c,nnz;
-  mm_read_mtx_crd_size(fp, &r, &c, &nnz);
-
-  num_rows_glb_ = r;
-  num_cols_glb_ = c;
-  num_cols_loc_ = c;
-
-  double v;
-  unordered_map<int, vector<pair<int, double>>> G;
 
   a_ .clear();
   ia_.clear();
   ja_.clear();
-
-  for(int k=0; k<nnz; ++k) {
-    fscanf(fp, "%d %d %lg\n", &r, &c, &v);
-    if(r<c) { fclose(fp); fp=nullptr; error(file_name, "find nnz in upper triangular part.");} 
-    r--; c--;  //base 0
-    G[r].emplace_back(c,v);
-    if(r!=c) G[c].emplace_back(r,v);
-  }
-
-  fclose(fp);
-  fp =nullptr;
-
-  for(auto it = G.begin(); it!=G.end(); ++it)
-    sort((it->second).begin(), (it->second).end());
-
-  // in case non-even split
-  row_rcvcnt_.clear(); row_rcvcnt_.resize(nproc_, num_rows_glb_/nproc_);
-  row_displs_.clear(); row_displs_.resize(nproc_+1, 0);
-
-  for(int i=0, iEnd=num_rows_glb_%nproc_; i<iEnd; i++) row_rcvcnt_[i]++;
-  for(int i=1; i<=nproc_; i++) row_displs_[i] = row_displs_[i-1] + row_rcvcnt_[i-1];
   
-  num_rows_loc_ = row_rcvcnt_[rank_];
-
-  // store G into CSR
-  int rEnd;
-  for(r=row_displs_[rank_],rEnd=row_displs_[rank_+1]; r!=rEnd; r++) {
-    ia_.push_back((signed)a_.size());
-    if(G.count(r)==0) continue;
-    auto &Gr = G[r];
-    for(auto&p : Gr) {
-      ja_.push_back(p.first);
-      a_ .push_back(p.second);
-    }
+  int r,c;
+  if(fmt == "binary") {
+    do_read_binary_mtx_into_CSR(file_name, 
+        num_rows_glb_, num_cols_glb_, num_rows_loc_, num_cols_loc_, 
+        row_rcvcnt_, row_displs_,
+        rank_, nproc_);
   }
-  ia_.push_back((signed)a_.size());
+  else{
 
-  //FOR MKL MKL_INT
-  //for(auto x: ia_) MKL_ia_.push_back(x);
-  //for(auto x: ja_) MKL_ja_.push_back(x);
+    unordered_map<int, vector<pair<int, double>>> G;
+    do_read_mm_mtx_into_G(file_name, G, r, c);
+    num_rows_glb_ = r;
+    num_cols_glb_ = c;
+    num_cols_loc_ = c;
+    // in case non-even split
+    row_rcvcnt_.clear(); row_rcvcnt_.resize(nproc_, num_rows_glb_/nproc_);
+    row_displs_.clear(); row_displs_.resize(nproc_+1, 0);
+    for(int i=0, iEnd=num_rows_glb_%nproc_; i<iEnd; i++) row_rcvcnt_[i]++;
+    for(int i=1; i<=nproc_; i++) row_displs_[i] = row_displs_[i-1] + row_rcvcnt_[i-1];
+    num_rows_loc_ = row_rcvcnt_[rank_];
 
+    // store G into CSR
+    int rEnd;
+    for(r=row_displs_[rank_],rEnd=row_displs_[rank_+1]; r!=rEnd; r++) {
+      ia_.push_back((signed)a_.size());
+      if(G.count(r)==0) continue;
+      auto &Gr = G[r];
+      for(auto&p : Gr) {
+        ja_.push_back(p.first);
+        a_ .push_back(p.second);
+      }
+    }
+    ia_.push_back((signed)a_.size());
+  }
+ 
 
   
   // prepare for matvec mpi fun, 
@@ -134,6 +106,7 @@
   int disp = row_displs_[rank_];
   for(int i=0, iEnd=mv_x_sndidx_.size(); i<iEnd; i++) 
     mv_x_sndidx_[i]-=disp;
+
 
 }
 
@@ -309,9 +282,97 @@ void MtxSp::TransMultiplyVector(int nrows, double*x, double* y ){
 } //end of fun MultiplyVector
 
 
+// ============================================================================
+// fuck
+// ============================================================================
+void MtxSpMPI::do_read_mm_mtx_into_G(const string& file_name, unordered_map<int,vector<pair<int,double>>> &G, int& nrows, int&ncols){
+  if(file_name.empty()) error("file name is empty()\n");
+  FILE*fp = fopen(file_name.c_str(), "r");
+  if(!fp) error(file_name," cannot be opened\n");
+  MM_typecode matcode;
+  mm_read_banner(fp, &matcode);
+  if(   !mm_is_matrix(matcode)
+      ||!mm_is_sparse(matcode)
+      ||!mm_is_symmetric(matcode) ) {
+    fclose(fp);
+    fp=nullptr;
+    error(file_name," MartixMarket format error, only accept\n"
+        "MatrixMarket matrix coordinate real/int symmetric\n");
+  }
 
+  int r,c, nnz;
+  mm_read_mtx_crd_size(fp, &r, &c, &nnz);
+  nrows=r; 
+  ncols=c;
+  double v;
 
+  for(int k=0; k<nnz; ++k) {
+    fscanf(fp, "%d %d %lg\n", &r, &c, &v);
+    if(r<c) { fclose(fp); fp=nullptr; error(file_name, "find nnz in upper triangular part.");} 
+    r--; c--;  //base 0
+    G[r].emplace_back(c,v);
+    if(r!=c) G[c].emplace_back(r,v);
+  }
 
+  fclose(fp);
+  fp =nullptr;
+
+  for(auto it = G.begin(); it!=G.end(); ++it)
+    sort((it->second).begin(), (it->second).end());
+} //end of function do_read_mm_mtx_into_G
+
+// ============================================================================
+// fuck
+// ============================================================================
+void MtxSpMPI::do_read_binary_mtx_into_CSR(const string& file_name, int& rglb, int&cglb, 
+    int&rloc, int &cloc, 
+    vector<int> &row_rcvcnt, vector<int> &row_displs, 
+    const int rank, const int nproc){
+  if(file_name.empty()) error("file name is empty()\n");
+  ifstream myFile (file_name.c_str(), ios::in | ios::binary);
+
+  if(sizeof(long int)!=8) { printf("Err! this machine 'long int' is not 64bit. Cannot read file %s\n",file_name.c_str()); exit(1); }
+  long int nrows64, ncols64, nnz;
+  myFile.read((char*)&nrows64, sizeof(long int));
+  myFile.read((char*)&ncols64, sizeof(long int));
+  myFile.read((char*)&nnz,     sizeof(long int));
+ 
+  vector<long int> colptr(ncols64+1);
+  vector<long int> rowval(nnz);
+  vector<double>   nzval (nnz);
+  
+  myFile.read((char*) &colptr[0], (ncols64+1)*sizeof(long int));
+  myFile.read((char*) &rowval[0], nnz    *sizeof(long int));
+  myFile.read((char*) &nzval [0], nnz    *sizeof(long int));
+
+  myFile.close();
+
+    rglb = nrows64;
+    cglb = ncols64;
+    cloc = ncols64;
+    
+    row_rcvcnt.clear(); row_rcvcnt.resize(nproc, rglb/nproc);
+    row_displs.clear(); row_displs.resize(nproc+1, 0);
+
+    for(int i=0, iEnd=rglb%nproc; i<iEnd; i++) row_rcvcnt[i]++;
+    for(int i=1; i<=nproc; i++) row_displs[i] = row_displs[i-1] + row_rcvcnt[i-1];
+    rloc = row_rcvcnt[rank];
+    
+
+    ia_.clear();
+    ja_.clear();
+    a_.clear();
+
+    for(int r=row_displs[rank], rEnd=row_displs[rank+1]; r!=rEnd; r++){
+      ia_.push_back((signed)a_.size());
+      for(int jt=colptr[r],jtEnd=colptr[r+1]; jt!=jtEnd; jt++){
+        ja_.push_back(rowval[jt]);
+         a_.push_back(nzval [jt]);
+      }
+    }
+    ia_.push_back((signed)a_.size());
+
+} //end of function do_read_mm_mtx_into_G
 
 
 

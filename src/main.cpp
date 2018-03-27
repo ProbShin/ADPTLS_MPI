@@ -40,8 +40,7 @@ int main(int argc, char const *argv[]){
   }
 
   {
-    //MtxSpMPI A1(file_A, rank, nproc); 
-    //printf("hello\n");
+    //MtxSpMPI A1(file_A,"mm", rank, nproc); 
     //A1.dump();
 
     //FTMtxMPI A3(file_A, file_E, rank, nproc,1);

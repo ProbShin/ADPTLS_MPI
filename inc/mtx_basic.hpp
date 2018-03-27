@@ -66,7 +66,7 @@ int num_cols_;
 // ============================================================================
 class MtxSpMPI : public MtxSp {
 public: MtxSpMPI(int rnk, int np):MtxSp(),rank_(rnk), nproc_(np) {}
-public: MtxSpMPI(const string&file_name, int rnk, int np); 
+public: MtxSpMPI(const string&file_name,const string&fmt, int rnk, int np); 
 virtual ~MtxSpMPI(){
   //row_rcvcnt_.clear();
   //row_displs_.clear();
@@ -80,6 +80,7 @@ public:
   void MultiplyVectorMPI(int nrows, double* xloc, double *xglb, double *yglb);
   void MultiplyMatrix_Allgatherv(int nrows, int K, double* xglb, double *yloc, double *yglb, int* recvcounts, int* displs);
 
+  
 public:
   virtual int rows() const { return num_rows_glb_; }
   virtual int cols() const { return num_cols_glb_; }
@@ -89,9 +90,14 @@ public:
   vector<int>& get_row_displs(){ return row_displs_; }
   vector<int>& get_row_rcvcnt(){ return row_rcvcnt_; }
 
+private: 
+  void do_read_mm_mtx_into_G(const string&file_name, unordered_map<int, vector<pair<int, double>>>&G, int &r, int& c);
+  void do_read_binary_mtx_into_CSR(const string&file_name, int&rglb, int&cglb, int&rloc, int &cloc, vector<int>&rowcnt, vector<int>&rowpls, const int rank, const int nproc);
 public:  virtual void dump();
 private: virtual void error(const string& s1);
 private: virtual void error(const string& s1,const string& s2);
+
+
 
 protected:
 const int rank_;

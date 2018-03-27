@@ -8,6 +8,132 @@
 #include "adptls.hpp"
 #include <sstream>
 
+
+
+
+
+
+LSFaultMPI::LSFaultMPI(const string&fA, const string&fE, const string& fb, 
+    vector<int>& vfts, const string& ftfa_base, 
+    int rk, const int np){
+  ftn=0;
+  rank=rk;
+  nproc=np;
+  A4Res = new MtxSpMPI(fA, "mm", rank, nproc);
+  Atut  = new FTMtxMPI(fA, fE, rank, nproc, 0);
+  E4Res = new MtxDen(fE);
+  b4Res = new MtxDen(fb);
+  Eb=nullptr;  //for faulted rhs, b<- E'b
+  {
+    MtxDen E(fE);
+    Eb = new double[E.cols()];
+    E.TransMultiplyMatrix(1, &(b4Res->a_[0]), Eb);
+  }
+
+  rstep_pool.clear();
+  for(int i=vfts.size()-1; i>=0; i--) {
+    rstep_pool.emplace_back(vfts[i]);
+  }
+  stringstream ss;
+  for(int i=vfts.size(); i>0; i--) {
+    ss<<ftfa_base<<"_K"<<Atut->get_sys_E_size()<<"_"<<nproc<<"p"<<"_s"<<i<<".mtx";
+    rfA_pool.push_back(ss.str());
+    ss.str("");
+  }
+
+  // fault recover variables
+
+} //end of construction
+
+
+
+void LSFaultMPI::boom(MtxSpMPI* &A, double* array_nby1, double* x_loc, vector<double>&saved_x_loc, double* bloc, double*r_loc, double& rddot_loc, double& rddot, double&beta) {
+      ftn += 1;
+      if(!rstep_pool.empty()) rstep_pool.pop_back();
+
+  int ftn_loc=0;
+  int ftn_pre_loc=0;
+  vector<int> ftn_rcvcnt;
+      ftn_rcvcnt.clear();
+      ftn_rcvcnt.resize(nproc, ftn/nproc);
+      for(int i=0, iEnd=ftn%nproc; i!=iEnd; i++) ftn_rcvcnt[i]++;
+      ftn_pre_loc = ftn_loc;
+      ftn_loc = ftn_rcvcnt[rank];
+
+      // update A
+      delete A; 
+      A =new MtxSpMPI(rfA_pool.back().c_str(), "mm", rank, nproc);
+      rfA_pool.pop_back();
+      
+      int nloc = A->rows_loc();  
+      int n    = A->rows();
+
+      int *row_rcvcnt = &((A->get_row_rcvcnt())[0]); //A_rcvcnt[0];
+      int *row_displs = &((A->get_row_displs())[0]); //A_displs[0];
+      
+      
+      // update x  
+      if(ftn_pre_loc!=ftn_loc){
+        saved_x_loc.push_back(x_loc[ftn_pre_loc]);
+        x_loc[ftn_pre_loc]=0;
+      }
+  
+      // update right hand side.  b<- b.update(E'b) - Atut(fault_related row,cols) * saved_x 
+      double* orig_rhs_loc = &b4Res->a_[row_displs[rank]];
+      for(int i=0; i<nloc; i++)
+        bloc[i] = orig_rhs_loc[i]; // = b4Res->a_[row_displs[rank]];
+      for(int i=0; i<ftn_loc; i++) {
+        bloc[i] = Eb[rank+i*nproc];
+      }
+
+      double *ft_b_per_rank = new double[n];
+      vector<int> ft_related_rows, ft_related_cols;
+      
+      for(int i=0,iEnd=ftn_rcvcnt[rank]; i!=iEnd; i++){
+        ft_related_rows.push_back(row_displs[rank]+i);  //faulted rows
+      }
+      
+      for(int pid=0; pid!=nproc; pid++){
+        for(int i=0; i<ftn_rcvcnt[pid]; i++){
+          ft_related_cols.push_back(pid+i*nproc+n);
+        }
+        for(int i=row_displs[pid]+ftn_rcvcnt[pid], iEnd=row_displs[pid+1]; i<iEnd; i++){
+          ft_related_cols.push_back(i);
+        }
+      }
+
+      Atut->Atut_sub_mtx_times_x_saved(ft_related_rows, ft_related_cols, saved_x_loc, ft_b_per_rank); 
+
+      double *ft_b          = new double[n];
+      MPI_Allreduce(ft_b_per_rank, ft_b, n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+      delete []ft_b_per_rank; ft_b_per_rank=nullptr;
+      double *ft_b_loc = &ft_b[row_displs[rank]];
+      for(int i=0; i<nloc; i++)
+        bloc[i]-=ft_b_loc[i];
+
+      delete []ft_b; ft_b=nullptr;
+      ft_b_loc = nullptr;
+
+      // update r_loc = b-Ax
+      A->MultiplyVectorMPI(nloc, &x_loc[0], array_nby1, &r_loc[0]);
+      //MPI_Allgatherv(x_loc, nloc, MPI_DOUBLE, &v_x_[0], row_rcvcnt, row_displs, MPI_DOUBLE, MPI_COMM_WORLD);
+      //A->MultiplyVector(nloc, &(v_x_[0]), r_loc);
+      for(int i=0; i<nloc;i++) r_loc[i]=bloc[i] - r_loc[i];
+
+      //update rddot_loc and rddot
+      rddot_loc=.0; for(int i=0; i<nloc; i++) rddot_loc+=r_loc[i]*r_loc[i];
+      MPI_Allreduce(&rddot_loc,&rddot,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+      beta=.0;
+
+}
+
+
+
+
+
+
+
 // ----------------------------------------------------------------------------
 // MPI versioned Adaptive Linear Solver, (Conjugate Gradient)
 // ----------------------------------------------------------------------------
@@ -40,31 +166,7 @@ void MPI_ADLS_CG::solve(){
  
   // size dimension varibles
 
-
-
-  // fault recover variables
-  MtxSpMPI* A4Res = new MtxSpMPI(file_A_, rank, nproc);
-  MtxDen  * E4Res = new MtxDen(file_E_);
-  MtxDen  * b4Res = new MtxDen(file_rhs_);
-  double *Eb=nullptr;  //for faulted rhs, b<- E'b
-  {
-    MtxDen E(file_E_);
-    Eb = new double[E.cols()];
-    E.TransMultiplyMatrix(1, &(b.a_[0]), Eb);
-  }
-
-
-  int coming_fts;
-  if(r_ft_pool_.empty()) coming_fts =-1;
-  else{ 
-    coming_fts = r_ft_pool_.back();
-    r_ft_pool_.pop_back();
-  }
-  int ftn = 0;                  //number of faults happened.
-  int ftn_loc=0;
-  int ftn_pre_loc=0;
-  vector<int> ftn_rcvcnt;
-  ftn_rcvcnt.resize(nproc,0);
+  int coming_fts =  faults->next_position();
 
   // run time variales
   double tim_allreduce = 0.0;
@@ -115,79 +217,13 @@ void MPI_ADLS_CG::solve(){
     
     if(cgit==coming_fts) {
       tim_ft -= MPI_Wtime();
-      ftn += 1;
-      if(r_ft_pool_.empty()) coming_fts = -1;
-      else{
-        coming_fts = r_ft_pool_.back();
-        r_ft_pool_.pop_back();
-      }
-    
-      ftn_rcvcnt.clear();
-      ftn_rcvcnt.resize(nproc, ftn/nproc);
-      for(int i=0, iEnd=ftn%nproc; i!=iEnd; i++) ftn_rcvcnt[i]++;
-      ftn_pre_loc = ftn_loc;
-      ftn_loc = ftn_rcvcnt[rank];
-
-      // update A
-      delete A; A =new MtxSpMPI(r_ft_fA_pool_.back().c_str(), rank, nproc);
-      r_ft_fA_pool_.pop_back();
+      faults->boom(A, array_nby1, x_loc, saved_x_loc_, rhs_loc, r_loc, rddot_loc, curr_rddot, beta);
+      
       row_rcvcnt = &((A->get_row_rcvcnt())[0]);
       row_displs = &((A->get_row_displs())[0]);
       disp  = row_displs[rank];
 
-      // update x  
-      if(ftn_pre_loc!=ftn_loc){
-        saved_x_loc_.push_back(x_loc[ftn_pre_loc]);
-        x_loc[ftn_pre_loc]=0;
-      }
-  
-      // update right hand side.  b<- b.update(E'b) - Atut(fault_related row,cols) * saved_x 
-      double* orig_rhs_loc = &b4Res->a_[row_displs[rank]];
-      for(int i=0; i<nloc; i++)
-        rhs_loc[i] = orig_rhs_loc[i]; // = b4Res->a_[row_displs[rank]];
-      for(int i=0; i<ftn_loc; i++) {
-        rhs_loc[i] = Eb[rank+i*nproc];
-      }
-
-      double *ft_b_per_rank = new double[n];
-      vector<int> ft_related_rows, ft_related_cols;
-      
-      for(int i=0,iEnd=ftn_rcvcnt[rank]; i!=iEnd; i++){
-        ft_related_rows.push_back(row_displs[rank]+i);  //faulted rows
-      }
-      
-      for(int pid=0; pid!=nproc; pid++){
-        for(int i=0; i<ftn_rcvcnt[pid]; i++){
-          ft_related_cols.push_back(pid+i*nproc+n);
-        }
-        for(int i=row_displs[pid]+ftn_rcvcnt[pid], iEnd=row_displs[pid+1]; i<iEnd; i++){
-          ft_related_cols.push_back(i);
-        }
-      }
-
-      Atut_->Atut_sub_mtx_times_x_saved(ft_related_rows, ft_related_cols, saved_x_loc_, ft_b_per_rank); 
-
-      double *ft_b          = new double[n];
-      MPI_Allreduce(ft_b_per_rank, ft_b, n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-      delete []ft_b_per_rank; ft_b_per_rank=nullptr;
-      double *ft_b_loc = &ft_b[row_displs[rank]];
-      for(int i=0; i<nloc; i++)
-        rhs_loc[i]-=ft_b_loc[i];
-
-      delete []ft_b; ft_b=nullptr;
-      ft_b_loc = nullptr;
-
-      // update r_loc = b-Ax
-      MPI_Allgatherv(x_loc, nloc, MPI_DOUBLE, &v_x_[0], row_rcvcnt, row_displs, MPI_DOUBLE, MPI_COMM_WORLD);
-      A->MultiplyVector(nloc, &(v_x_[0]), r_loc);
-      for(int i=0; i<nloc;i++) r_loc[i]=rhs_loc[i] - r_loc[i];
-
-      beta = 0.0;
-      rddot_loc=.0; for(int i=0; i<nloc; i++) rddot_loc+=r_loc[i]*r_loc[i];
-      MPI_Allreduce(&rddot_loc,&curr_rddot,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-
-      //ss<<"\t\t"<<"curr_rddot changed to"<<curr_rddot<<"\n";
+      coming_fts = faults->next_position();
       tim_ft += MPI_Wtime();
     }
     
@@ -211,8 +247,8 @@ void MPI_ADLS_CG::solve(){
   tim_cg += MPI_Wtime();
 
   MPI_Barrier(MPI_COMM_WORLD);
-  if(rank == ROOT_ID) printf("np %d ,ftn %d ,tot_iter %d ,tot_runtime %g ,fault_time %g ,pure_cg_time %g ,",nproc,ftn, cgit,tim_cg,tim_ft,tim_cg-tim_ft);
-  double res = get_rtol_from_xloc(x_loc, A4Res, ftn, saved_x_loc_.size(), &saved_x_loc_[0], E4Res, b4Res);
+  if(rank == ROOT_ID) printf("np %d ,ftn %d ,tot_iter %d ,tot_runtime %g ,fault_time %g ,pure_cg_time %g ,",nproc,faults->cnt(), cgit,tim_cg,tim_ft,tim_cg-tim_ft);
+  double res = get_rtol_from_xloc(x_loc, faults->A4Res, faults->cnt(), saved_x_loc_.size(), &saved_x_loc_[0], faults->E4Res, faults->b4Res);
   if(rank_==ROOT_ID) printf("final_rtol %g\n",res);
   
   
@@ -221,10 +257,10 @@ void MPI_ADLS_CG::solve(){
   //xloc2xglb(nloc, x_loc, row_rcvcnt, row_displs, &v_x_[0], ftn, saved_x_loc_.size(), &saved_x_loc_[0], E4Res);
   //if(rank == ROOT_ID) { printf("solution x(%d) :",(signed)v_x_.size()); for(int i=0;i<min((signed)v_x_.size(),100); i++) printf(" %g",v_x_[i]); if(v_x_.size()>100) printf("..."); printf("\n"); } 
   
-  if(!Eb) delete []Eb; Eb=nullptr;
-  if(!A4Res) delete A4Res; A4Res = nullptr;
-  if(!E4Res) delete E4Res; E4Res = nullptr;
-  if(!b4Res) delete b4Res; b4Res = nullptr;
+  //if(!Eb) delete []Eb; Eb=nullptr;
+  //if(!A4Res) delete A4Res; A4Res = nullptr;
+  //if(!E4Res) delete E4Res; E4Res = nullptr;
+  //if(!b4Res) delete b4Res; b4Res = nullptr;
 
 }//end of fn solve 
 
@@ -382,8 +418,8 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   A_(nullptr),
   b_(f_rhs)
 {
-  A_    = new MtxSpMPI(f_A, rank, nproc);
-  Atut_ = new FTMtxMPI(f_A, f_E, rank, nproc, 0);
+  A_    = new MtxSpMPI(f_A, "mm", rank, nproc);
+
 
   int nloc = A_->rows_loc();
   int n = A_->rows();
@@ -396,17 +432,7 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   //v_p_.assign(n, .0);
   v_x_.assign(n, .0);
 
-  r_ft_pool_.clear();
-  for(int i=vfts.size()-1; i>=0; i--) {
-    r_ft_pool_.emplace_back(vfts[i]);
-  }
-  stringstream ss;
-  for(int i=vfts.size(); i>0; i--) {
-    ss<<ftfa_base<<"_K"<<Atut_->get_sys_E_size()<<"_"<<nproc<<"p"<<"_s"<<i<<".mtx";
-    r_ft_fA_pool_.push_back(ss.str());
-    ss.str("");
-  }
-
+  faults = new LSFaultMPI(f_A, f_E, f_rhs, vfts, ftfa_base, rank, nproc);
   return;
 }
 
@@ -414,7 +440,11 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
 // ============================================================================
 // DeConstruction
 // ============================================================================
-MPI_ADLS_CG::~MPI_ADLS_CG(){ if(A_) delete A_; A_=nullptr; if(Atut_) delete Atut_; Atut_=nullptr;}
+MPI_ADLS_CG::~MPI_ADLS_CG(){ 
+  if(A_) delete A_; A_=nullptr; 
+  //if(Atut_) delete Atut_; Atut_=nullptr; 
+  if(faults) delete faults; faults=nullptr;
+}
 
 
 
