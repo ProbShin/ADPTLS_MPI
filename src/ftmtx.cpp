@@ -302,7 +302,7 @@ delete A;     A  =nullptr;
 
 
   // G(rowIndex, colIndex) stored into csr format
-  fault_boom(ftn);
+  //fault_boom(ftn);
 } // end of fn FTMtxMPI()
 
 

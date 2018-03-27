@@ -20,7 +20,7 @@ int main(int argc, char const *argv[]){
   MPI_Init(&argc, (char***) &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
-
+  
   string file_A, file_E, file_rhs, ftfa;
   vector<int> vfts;
  
@@ -40,7 +40,8 @@ int main(int argc, char const *argv[]){
   }
 
   {
-    //MtxSp A1(file_A); 
+    //MtxSpMPI A1(file_A, rank, nproc); 
+    //printf("hello\n");
     //A1.dump();
 
     //FTMtxMPI A3(file_A, file_E, rank, nproc,1);

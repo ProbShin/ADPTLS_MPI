@@ -1,5 +1,6 @@
 #ifndef MPI_MTX_BASIC_HPP
 #define MPI_MTX_BASIC_HPP
+#include <mkl.h>
 
 #include "mpi.h"
 #include "mmio.h"
@@ -34,12 +35,13 @@ public:
   vector<int>&    get_ja(){ return ja_; }
   vector<double>& get_a() { return a_;  }
 
-
-  double wocao_a(int i) { return a_[i]; }
+  //double*  get_aptr()      { return &a_[0]; }
+  //MKL_INT* get_mkl_iaptr() { return &MKL_ia_[0]; }
+  //MKL_INT* get_mkl_japtr() { return &MKL_ja_[0]; }
 
   void MultiplyVector(int nrows, double* x, double *y);             
   void MultiplyMatrix(int nrows, int ncols, double* x, double *y);     
-
+  void TransMultiplyVector(int nloc, double* x, double *y);
 
 public:virtual void dump();
 private:
@@ -50,6 +52,9 @@ protected:
 vector<int> ia_;
 vector<int> ja_;
 vector<double> a_;
+//vector<MKL_INT> MKL_ia_;
+//vector<MKL_INT> MKL_ja_;
+
 
 private:
 int num_rows_;
@@ -72,7 +77,7 @@ virtual ~MtxSpMPI(){
         MtxSpMPI& operator=(MtxSpMPI&&)=delete;
         MtxSpMPI& operator=(const MtxSpMPI&)=delete;
 public:
-  void MultiplyVector_Allgatherv(int nrows,        double* xglb, double *yloc, double *yglb, int* recvcounts, int* displs);
+  void MultiplyVectorMPI(int nrows, double* xloc, double *xglb, double *yglb);
   void MultiplyMatrix_Allgatherv(int nrows, int K, double* xglb, double *yloc, double *yglb, int* recvcounts, int* displs);
 
 public:
@@ -92,12 +97,21 @@ protected:
 const int rank_;
 const int nproc_;
 
-vector<int> row_rcvcnt_;
-vector<int> row_displs_;
+vector<int> row_rcvcnt_;                     // nloc for each process
+vector<int> row_displs_;                     // used for loc_row_id -> glb_row_id
+
 
 protected:
-int num_rows_loc_, num_cols_loc_;
-int num_rows_glb_, num_cols_glb_;
+int num_rows_loc_, num_cols_loc_;            // matrix size
+int num_rows_glb_, num_cols_glb_;            // matrix size
+
+
+// matrix times vector needed variables
+private:  
+vector<int>    mv_x_sndidx_,  mv_x_rcvidx_;  // used for pack, unpack
+vector<double> mv_x_sndbuf_,  mv_x_rcvbuf_;  // used by MPI_Alltoall
+vector<int>    mv_x_sndcnt_,  mv_x_rcvcnt_;  // used by MPI_Alltoall
+vector<int>    mv_x_sndpls_,  mv_x_rcvpls_;  // used by MPI_Alltoall
 
 };
 

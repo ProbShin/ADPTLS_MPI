@@ -5,7 +5,7 @@
   > Created Time: Sun Dec 31 15:52:40 2017
  ************************************************************************/
 #include "mtx_basic.hpp"
-
+#include <unordered_set>
 
 // ============================================================================
 // constructor of sparse matrix using MPI
@@ -78,6 +78,63 @@
     }
   }
   ia_.push_back((signed)a_.size());
+
+  //FOR MKL MKL_INT
+  //for(auto x: ia_) MKL_ia_.push_back(x);
+  //for(auto x: ja_) MKL_ja_.push_back(x);
+
+
+  
+  // prepare for matvec mpi fun, 
+  mv_x_sndcnt_.clear(); mv_x_sndcnt_.resize(nproc_  , 0);
+  mv_x_sndpls_.clear(); mv_x_sndpls_.resize(nproc_+1, 0);
+  mv_x_rcvcnt_.clear(); mv_x_rcvcnt_.resize(nproc_  , 0);
+  mv_x_rcvpls_.clear(); mv_x_rcvpls_.resize(nproc_+1, 0);
+
+
+  // get unique non zero cols of A_{rank,pid}  
+  int nloc = row_rcvcnt_[rank_];
+  vector<unordered_set<int>> v_uniq_rcs(nproc_);
+  for(int it=0; it<nloc; it++) {
+    int curPidPlus1 =1;
+    for(int jt=ia_[it], jtEnd=ia_[it+1]; jt!=jtEnd; jt++) {
+      int    col = ja_[jt]; //printf("find col %d\n",col);
+      double val =  a_[jt];
+      while( row_displs_[curPidPlus1]<= col) curPidPlus1++;
+      v_uniq_rcs[curPidPlus1-1].insert(col);
+    }
+  }
+  
+  // set up recive_buffer, recive_count, recive_displs, and recive_indexs
+  for(int pid=0; pid<nproc_; pid++){
+    mv_x_rcvcnt_[pid]  =v_uniq_rcs[pid].size();
+    mv_x_rcvpls_[pid+1]=mv_x_rcvpls_[pid]+mv_x_rcvcnt_[pid];
+
+  }
+  int rcvbuf_size = mv_x_rcvpls_[nproc_];
+  mv_x_rcvbuf_.clear(); mv_x_rcvbuf_.resize(rcvbuf_size,0);
+  mv_x_rcvidx_.reserve(rcvbuf_size);
+  for(int pid=0; pid<nproc_; pid++){
+    vector<int> idxs(v_uniq_rcs[pid].begin(), v_uniq_rcs[pid].end()); //Required Cols from Process pId
+    sort(idxs.begin(), idxs.end());
+    mv_x_rcvidx_.insert(mv_x_rcvidx_.end(), idxs.begin(), idxs.end());
+  }
+
+  // set up sender_buffer, sender_count, sender_displs and sender_indexs
+  MPI_Alltoall(&mv_x_rcvcnt_[0], 1, MPI_INT, &mv_x_sndcnt_[0], 1, MPI_INT, MPI_COMM_WORLD);
+  for(int i=0; i<nproc; i++) mv_x_sndpls_[i+1]=mv_x_sndpls_[i]+mv_x_sndcnt_[i];
+  int sndbuff_size = mv_x_sndpls_[nproc_];
+
+  mv_x_sndidx_.clear(); mv_x_sndidx_.resize(sndbuff_size,0);
+  mv_x_sndbuf_.clear(); mv_x_sndbuf_.resize(sndbuff_size,0);
+  MPI_Alltoallv(&mv_x_rcvidx_[0], &mv_x_rcvcnt_[0], &mv_x_rcvpls_[0], MPI_INT, 
+      &mv_x_sndidx_[0], &mv_x_sndcnt_[0], &mv_x_sndpls_[0], MPI_INT, MPI_COMM_WORLD);
+  
+  // snder_indexs <- global_to_local(snder indexs) 
+  int disp = row_displs_[rank_];
+  for(int i=0, iEnd=mv_x_sndidx_.size(); i<iEnd; i++) 
+    mv_x_sndidx_[i]-=disp;
+
 }
 
 // ===========================================================================
@@ -135,16 +192,48 @@ MtxSp::MtxSp(const string& file_name) {
     }
   }
   ia_.push_back((signed)a_.size()); 
+
+}
+
+
+
+// ============================================================================
+// back multiply a vector        Y_{nloc,1} <- A_{nloc, N}*x_{nloc,1}
+// ----------------------------------------------------------------------------
+// input: nrows_loc should be nloc
+// input: xloc is array(bloc by 1), contains xloc data
+// input: xglob_workspace is array(n by 1), does not needed to be init
+// output: yloc is array(n by 1)
+// ----------------------------------------------------------------------------
+// procedure:
+//    pack the needed information
+//    communicate the needed information
+//    unpack the needed informaiton
+//    MatVec operation
+// ============================================================================
+void MtxSpMPI::MultiplyVectorMPI(int nrows_loc, double *xloc, double *xglb_workspace, double*yloc){
+  // pack for the sender buffer
+  for(int i=0, iEnd=mv_x_sndidx_.size(); i<iEnd; i++)
+    mv_x_sndbuf_[i]=xloc[ mv_x_sndidx_[i] ];
+
+  MPI_Alltoallv(&mv_x_sndbuf_[0], &mv_x_sndcnt_[0], &mv_x_sndpls_[0], MPI_DOUBLE, 
+      &mv_x_rcvbuf_[0], &mv_x_rcvcnt_[0], &mv_x_rcvpls_[0], MPI_DOUBLE, MPI_COMM_WORLD);
+
+  // unpack recved buffer
+  for(int i=0, iEnd=mv_x_rcvbuf_.size(); i<iEnd; i++) 
+    xglb_workspace[mv_x_rcvidx_[i]] = mv_x_rcvbuf_[i];
+  
+  MtxSp::MultiplyVector(nrows_loc, xglb_workspace, yloc);
 }
 
 
 // ============================================================================
 // back multiply a vector xglb into yglb.  Yglb <- MPI_Allgatherv( Aloc*xglb)
 // ============================================================================
-void MtxSpMPI::MultiplyVector_Allgatherv(int nrows_loc,        double *xglb, double *yloc, double*yglb, int*recvcounts, int*displs){
-  MtxSp::MultiplyVector(nrows_loc,    xglb, yloc);
-  MPI_Allgatherv(yloc, nrows_loc, MPI_DOUBLE, yglb, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD); 
-} 
+//void MtxSpMPI::MultiplyVector_Allgatherv(int nrows_loc,        double *xglb, double *yloc, double*yglb, int*recvcounts, int*displs){
+//  MtxSp::MultiplyVector(nrows_loc,    xglb, yloc);
+//  MPI_Allgatherv(yloc, nrows_loc, MPI_DOUBLE, yglb, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD); 
+//} 
 
 
 // ============================================================================
@@ -204,6 +293,28 @@ void MtxSp::MultiplyMatrix(int nrows, int K, double*x, double* y){
   }
 #endif
 } //end of fn MultiplyMatrix
+
+
+// ============================================================================
+//
+// ============================================================================
+void MtxSp::TransMultiplyVector(int nrows, double*x, double* y ){
+  for(int i=0,iEnd=cols(); i<iEnd; i++) y[i]=0;
+  for(int i=0,iEnd=nrows;  i<iEnd; i++){
+    double alpha = x[i]; 
+    if(alpha==0) continue;
+    for(int jt=ia_[i],jtEnd=ia_[i+1]; jt<jtEnd; jt++)
+      y[ja_[jt]]+=alpha*a_[jt];
+  }
+} //end of fun MultiplyVector
+
+
+
+
+
+
+
+
 
 // ============================================================================
 // dump

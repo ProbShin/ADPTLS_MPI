@@ -9,16 +9,40 @@
 #include <sstream>
 
 // ----------------------------------------------------------------------------
-// MPI versioned Adaptive Linear Solver, (Conjugate Gradient)a
+// MPI versioned Adaptive Linear Solver, (Conjugate Gradient)
 // ----------------------------------------------------------------------------
 void MPI_ADLS_CG::solve(){
 
-  stringstream ss;
   const int &rank  = rank_;
   const int &nproc = nproc_;   
+  
+  // CG variables
   MtxSpMPI* &A     = A_;      //A
   MtxDen    &b     = b_;      //rhs
+  int nloc = A->rows_loc();  
+  int n    = A->rows();
+  int *row_rcvcnt = &((A->get_row_rcvcnt())[0]); //A_rcvcnt[0];
+  int *row_displs = &((A->get_row_displs())[0]); //A_displs[0];
+  int disp  = row_displs[rank];
+  double *p_loc   = &(v_p_loc_[0]);
+  //double *p       = &(v_p_[0]);
+  double *Ap_loc  = &(v_Ap_loc_[0]);
+  double *x_loc   = &(v_x_loc_[0]);
+  double *r_loc   = &(v_r_loc_[0]);
+  double rddot_loc=.0;
+  double curr_rddot=.0;
+  double prev_rddot=.0;
+  double pAp_loc=0;
+  double pAp =0;
+  double *rhs_loc = &(b.a_[disp]);
+  vector<double> mem_space_nby1(n);
+  double *array_nby1 = &mem_space_nby1[0];
+ 
+  // size dimension varibles
 
+
+
+  // fault recover variables
   MtxSpMPI* A4Res = new MtxSpMPI(file_A_, rank, nproc);
   MtxDen  * E4Res = new MtxDen(file_E_);
   MtxDen  * b4Res = new MtxDen(file_rhs_);
@@ -29,28 +53,6 @@ void MPI_ADLS_CG::solve(){
     E.TransMultiplyMatrix(1, &(b.a_[0]), Eb);
   }
 
-  int nloc = A->rows_loc();  
-  int n    = A->rows();
-
-  int *row_rcvcnt = &((A->get_row_rcvcnt())[0]); //A_rcvcnt[0];
-  int *row_displs = &((A->get_row_displs())[0]); //A_displs[0];
-  
-  int disp  = row_displs[rank];
-
-  double tim_cg = -MPI_Wtime();
-  double tim_ft = 0.0;
-  double *p_loc   = &(v_p_loc_[0]);
-  double *p       = &(v_p_[0]);
-  double *Ap_loc  = &(v_Ap_loc_[0]);
-  double *x_loc   = &(v_x_loc_[0]);
-  double *r_loc   = &(v_r_loc_[0]);
-  double rddot_loc=.0;
-  double curr_rddot=.0;
-  double prev_rddot=.0;
-  double pAp_loc=0;
-  double pAp =0;
-  
-  double *rhs_loc = &(b.a_[disp]);
 
   int coming_fts;
   if(r_ft_pool_.empty()) coming_fts =-1;
@@ -63,27 +65,51 @@ void MPI_ADLS_CG::solve(){
   int ftn_pre_loc=0;
   vector<int> ftn_rcvcnt;
   ftn_rcvcnt.resize(nproc,0);
-  
+
+  // run time variales
+  double tim_allreduce = 0.0;
+  double tim_v1 = 0.0;
+  double tim_v2 = 0.0;
+  double tim_v3 = 0.0;
+  double tim_v4 = 0.0;
+  double tim_mv = 0.0;
+  double tim_cg = 0.0;
+  double tim_ft = 0.0;
+
+
+  // -------------- begining of CG ------------------------------------------//
   for(int i=0; i<nloc; i++) p_loc[i] = r_loc[i] = rhs_loc[i];
   for(int i=0; i<nloc; i++) x_loc[i] = .0;
 
   rddot_loc=.0; for(int i=0; i<nloc; i++) rddot_loc+=r_loc[i]*r_loc[i];
-  MPI_Allreduce(&rddot_loc,&prev_rddot,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  MPI_Allgatherv(p_loc, nloc,MPI_DOUBLE, p, row_rcvcnt, row_displs, MPI_DOUBLE,MPI_COMM_WORLD);
-  A->MultiplyVector(nloc, p, Ap_loc);
+  MPI_Allreduce(&rddot_loc,&prev_rddot,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD); 
+  
+  A->MultiplyVectorMPI(nloc, p_loc, array_nby1, Ap_loc);
+  
   pAp_loc=.0; for(int i=0; i<nloc; i++) pAp_loc+=p_loc[i]*Ap_loc[i];  
   MPI_Allreduce(&pAp_loc, &pAp, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
- 
+  
+  // ------------- offical begin of CG loops --------------------------------//
+  tim_cg =-MPI_Wtime();
   int cgit=1;
   for(cgit=1;cgit<=CG_MAX_ITER;cgit++){
     const double alpha = prev_rddot / pAp;
     
+    tim_v1 -= MPI_Wtime();
     for(int i=0; i<nloc; i++) x_loc[i]+= (alpha*p_loc[i]);
-    for(int i=0; i<nloc; i++) r_loc[i]-= (alpha*Ap_loc[i]);
+    tim_v1 += MPI_Wtime();
 
-    rddot_loc=.0; for(int i=0; i<nloc; i++) rddot_loc+=r_loc[i]*r_loc[i];
-    MPI_Allreduce(&rddot_loc,&curr_rddot,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    tim_v2 -= MPI_Wtime();
+    rddot_loc=0.0; 
+    for(int i=0; i<nloc; i++) {
+      r_loc[i]-= (alpha*Ap_loc[i]);
+      rddot_loc+=r_loc[i]*r_loc[i];
+    }
+    tim_v2 += MPI_Wtime();
     
+    tim_allreduce = -MPI_Wtime();
+    MPI_Allreduce(&rddot_loc,&curr_rddot,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    tim_allreduce += MPI_Wtime();
     if( curr_rddot>-ABS_TOL_SQR && curr_rddot<ABS_TOL_SQR )  break;
     double beta = curr_rddot / prev_rddot;
     
@@ -161,33 +187,37 @@ void MPI_ADLS_CG::solve(){
       rddot_loc=.0; for(int i=0; i<nloc; i++) rddot_loc+=r_loc[i]*r_loc[i];
       MPI_Allreduce(&rddot_loc,&curr_rddot,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
-      ss<<"\t\t"<<"curr_rddot changed to"<<curr_rddot<<"\n";
+      //ss<<"\t\t"<<"curr_rddot changed to"<<curr_rddot<<"\n";
       tim_ft += MPI_Wtime();
     }
     
-    //double res = get_rtol_from_xloc(x_loc, A4Res, ftn, saved_x_loc_.size(), &saved_x_loc_[0], E4Res, b4Res);
-    //if(rank_==ROOT_ID) fprintf(stdout,"Res %g @%d ",res,cgit);
-    //xloc2xglb(nloc, x_loc, row_rcvcnt, row_displs, &v_x_[0], ftn, saved_x_loc_.size(), &saved_x_loc_[0], E4Res);
-    //if(rank == ROOT_ID) { printf("x(%d) :",(signed)v_x_.size()); for(int i=0;i<min((signed)v_x_.size(),100); i++) printf(" %g",v_x_[i]); if(v_x_.size()>100) printf("..."); printf("\n"); } 
-    
     prev_rddot = curr_rddot;
-
-    
+    tim_v3 -= MPI_Wtime();
     for(int i=0; i<nloc; i++) p_loc[i]=beta*p_loc[i]+r_loc[i];
-    MPI_Allgatherv(p_loc,nloc,MPI_DOUBLE, p, row_rcvcnt, row_displs, MPI_DOUBLE,MPI_COMM_WORLD);
-    A_->MultiplyVector(nloc, p, Ap_loc); 
-    pAp_loc=.0; for(int i=0; i<nloc; i++)  pAp_loc += p_loc[i]*Ap_loc[i];
+    tim_v3 += MPI_Wtime();
+  
+    tim_mv -= MPI_Wtime();
+    A->MultiplyVectorMPI(nloc, p_loc, array_nby1, Ap_loc);
+    tim_mv += MPI_Wtime();
+  
+    tim_v4 -= MPI_Wtime();
+    pAp_loc=.0; for(int i=0; i<nloc; i++) pAp_loc+=p_loc[i]*Ap_loc[i];  
+    tim_v4 += MPI_Wtime();  
+    
+    tim_allreduce -= MPI_Wtime();
     MPI_Allreduce(&pAp_loc, &pAp, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
+    tim_allreduce += MPI_Wtime();
   }//end of for loop
   tim_cg += MPI_Wtime();
-  
-
 
   MPI_Barrier(MPI_COMM_WORLD);
   if(rank == ROOT_ID) printf("np %d ,ftn %d ,tot_iter %d ,tot_runtime %g ,fault_time %g ,pure_cg_time %g ,",nproc,ftn, cgit,tim_cg,tim_ft,tim_cg-tim_ft);
   double res = get_rtol_from_xloc(x_loc, A4Res, ftn, saved_x_loc_.size(), &saved_x_loc_[0], E4Res, b4Res);
   if(rank_==ROOT_ID) printf("final_rtol %g\n",res);
+  
+  
+  if(rank == ROOT_ID) printf("tot_runtime %g ,allreduce_time %g ,vector_time %g,mv_time %g \n",tim_cg,tim_allreduce,tim_v1+tim_v2+tim_v3+tim_v4,tim_mv);
+  if(rank == ROOT_ID) printf("update_x %g ,update_r %g ,update_p %g,update_pap %g \n",tim_v1,tim_v2,tim_v3,tim_v4);
   //xloc2xglb(nloc, x_loc, row_rcvcnt, row_displs, &v_x_[0], ftn, saved_x_loc_.size(), &saved_x_loc_[0], E4Res);
   //if(rank == ROOT_ID) { printf("solution x(%d) :",(signed)v_x_.size()); for(int i=0;i<min((signed)v_x_.size(),100); i++) printf(" %g",v_x_[i]); if(v_x_.size()>100) printf("..."); printf("\n"); } 
   
@@ -195,6 +225,7 @@ void MPI_ADLS_CG::solve(){
   if(!A4Res) delete A4Res; A4Res = nullptr;
   if(!E4Res) delete E4Res; E4Res = nullptr;
   if(!b4Res) delete b4Res; b4Res = nullptr;
+
 }//end of fn solve 
 
 
@@ -355,13 +386,14 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   Atut_ = new FTMtxMPI(f_A, f_E, rank, nproc, 0);
 
   int nloc = A_->rows_loc();
+  int n = A_->rows();
+  
   v_p_loc_.assign(nloc,.0);
   v_Ap_loc_.assign(nloc,.0);
   v_x_loc_.assign(nloc,.0);
   v_r_loc_.assign(nloc,.0);
 
-  int n = A_->rows();
-  v_p_.assign(n, .0);
+  //v_p_.assign(n, .0);
   v_x_.assign(n, .0);
 
   r_ft_pool_.clear();
@@ -370,7 +402,7 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   }
   stringstream ss;
   for(int i=vfts.size(); i>0; i--) {
-    ss<<ftfa_base<<"_np"<<nproc<<"_k"<<Atut_->get_sys_E_size()<<"_s"<<i<<".mtx";
+    ss<<ftfa_base<<"_K"<<Atut_->get_sys_E_size()<<"_"<<nproc<<"p"<<"_s"<<i<<".mtx";
     r_ft_fA_pool_.push_back(ss.str());
     ss.str("");
   }

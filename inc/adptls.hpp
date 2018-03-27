@@ -41,7 +41,7 @@ public:
   const int nproc_;
 
   // CG's variable
-  vector<double> v_p_;        // p global
+  //vector<double> v_p_;        // p global
   vector<double> v_p_loc_;    // p local
   vector<double> v_Ap_loc_;   //Ap local
   vector<double> v_x_;        // x global
