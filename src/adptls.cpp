@@ -12,7 +12,9 @@
 
 
 
-
+// ============================================================================
+// Liner Solver Fault system
+// ============================================================================
 LSFaultMPI::LSFaultMPI(const string&fA, const string&fE, const string& fb, 
     vector<int>& vfts, const string& ftfa_base, 
     int rk, const int np){
@@ -418,8 +420,12 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   A_(nullptr),
   b_(f_rhs)
 {
-  A_    = new MtxSpMPI(f_A, "mm", rank, nproc);
 
+  if(f_A.size()<4 || f_A.substr(f_A.length()-5,4)!=".mtx"){
+    A_    = new MtxSpMPI(f_A, "mm", rank, nproc);
+  }
+  else
+    A_    = new MtxSpMPI(f_A, "binary", rank, nproc);
 
   int nloc = A_->rows_loc();
   int n = A_->rows();

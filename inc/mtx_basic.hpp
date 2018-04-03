@@ -77,7 +77,7 @@ virtual ~MtxSpMPI(){
         MtxSpMPI& operator=(MtxSpMPI&&)=delete;
         MtxSpMPI& operator=(const MtxSpMPI&)=delete;
 public:
-  void MultiplyVectorMPI(int nrows, double* xloc, double *xglb, double *yglb);
+  void MultiplyVectorMPI(int nrows, double* xloc, double *xglb_workspace, double *yglb);
   void MultiplyMatrix_Allgatherv(int nrows, int K, double* xglb, double *yloc, double *yglb, int* recvcounts, int* displs);
 
   
