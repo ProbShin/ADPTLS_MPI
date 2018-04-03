@@ -25,7 +25,7 @@ FTMtxMPI::FTMtxMPI(const string&file_A, const string&file_E, int rank, int nproc
   vector<int>&nE_displs = G_nE_displs_;
 
 
-  MtxSpMPI *A = new MtxSpMPI(file_A, "mm", rank_, nproc_);
+  MtxSpMPI *A = new MtxSpMPI(file_A, rank_, nproc_);
   MtxDen   *E = new MtxDen(file_E);
 
   if(A->rows() != E->rows()) error(file_A,"file_A rows != file_E rows ");

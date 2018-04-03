@@ -21,7 +21,7 @@ LSFaultMPI::LSFaultMPI(const string&fA, const string&fE, const string& fb,
   ftn=0;
   rank=rk;
   nproc=np;
-  A4Res = new MtxSpMPI(fA, "mm", rank, nproc);
+  A4Res = new MtxSpMPI(fA, rank, nproc);
   Atut  = new FTMtxMPI(fA, fE, rank, nproc, 0);
   E4Res = new MtxDen(fE);
   b4Res = new MtxDen(fb);
@@ -421,11 +421,7 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   b_(f_rhs)
 {
 
-  if(f_A.size()<4 || f_A.substr(f_A.length()-5,4)!=".mtx"){
-    A_    = new MtxSpMPI(f_A, "mm", rank, nproc);
-  }
-  else
-    A_    = new MtxSpMPI(f_A, "binary", rank, nproc);
+  A_    = new MtxSpMPI(f_A, rank, nproc);
 
   int nloc = A_->rows_loc();
   int n = A_->rows();

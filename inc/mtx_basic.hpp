@@ -66,7 +66,7 @@ int num_cols_;
 // ============================================================================
 class MtxSpMPI : public MtxSp {
 public: MtxSpMPI(int rnk, int np):MtxSp(),rank_(rnk), nproc_(np) {}
-public: MtxSpMPI(const string&file_name,const string&fmt, int rnk, int np); 
+public: MtxSpMPI(const string&file_name, int rnk, int np); 
 virtual ~MtxSpMPI(){
   //row_rcvcnt_.clear();
   //row_displs_.clear();

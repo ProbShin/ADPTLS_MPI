@@ -10,7 +10,7 @@
 // ============================================================================
 // constructor of sparse matrix using MPI
 // ============================================================================
-  MtxSpMPI::MtxSpMPI(const string& file_name, const string&fmt, int rank, int nproc)
+  MtxSpMPI::MtxSpMPI(const string& file_name, int rank, int nproc)
 : MtxSp(),
   rank_(rank),
   nproc_(nproc)
@@ -21,7 +21,7 @@
   ja_.clear();
   
   int r,c;
-  if(fmt == "binary") {
+  if(file_name.size()<4 || file_name.substr(file_name.size()-4, 4)!=".mtx"){
     do_read_binary_mtx_into_CSR(file_name, 
         num_rows_glb_, num_cols_glb_, num_rows_loc_, num_cols_loc_, 
         row_rcvcnt_, row_displs_,
