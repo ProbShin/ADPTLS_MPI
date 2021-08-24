@@ -5,8 +5,9 @@
 #include <vector>
 #include "mpi.h"
 #include "def.hpp"
-#include "ftmtx.hpp"
-#include "mtx_basic.hpp"
+#include "FtlMtxMpi.hpp"
+#include "MtxDen.hpp"
+#include "MtxSpMpi.hpp"
 
 
 using namespace std;
@@ -29,7 +30,7 @@ public:
 
 public: void   solve();
 public: void   xloc2xglb(int nloc, double* xloc, int* rcvcnt, int* displs, double*x, int ftn, int ftn_loc, double* saved_xloc, MtxDen*E);
-public: double get_rtol_from_xloc(double *xloc, MtxSpMPI *A, int ftn, int ftn_loc, double* saved_xloc, MtxDen*E, MtxDen*b);
+public: double get_rtol_from_xloc(double *xloc, MtxSpMpi *A, int ftn, int ftn_loc, double* saved_xloc, MtxDen*E, MtxDen*b);
 
 
 public:  virtual void dump();
@@ -49,7 +50,7 @@ public:
   vector<double> v_r_loc_;    //res local
 
   FTMtxMPI *Atut_;
-  MtxSpMPI *A_;
+  MtxSpMpi *A_;
   MtxDen b_;
 
   vector<int> r_ft_pool_;

@@ -7,6 +7,9 @@
 #include "def.hpp"
 #include "adptls.hpp"
 #include <sstream>
+#include <cmath>   //sqrt
+
+using std::sqrt;
 
 // ----------------------------------------------------------------------------
 // MPI versioned Adaptive Linear Solver, (Conjugate Gradient)a
@@ -16,10 +19,10 @@ void MPI_ADLS_CG::solve(){
   stringstream ss;
   const int &rank  = rank_;
   const int &nproc = nproc_;   
-  MtxSpMPI* &A     = A_;      //A
+  MtxSpMpi* &A     = A_;      //A
   MtxDen    &b     = b_;      //rhs
 
-  MtxSpMPI* A4Res = new MtxSpMPI(file_A_, rank, nproc);
+  MtxSpMpi* A4Res = new MtxSpMpi(file_A_, rank, nproc);
   MtxDen  * E4Res = new MtxDen(file_E_);
   MtxDen  * b4Res = new MtxDen(file_rhs_);
   double *Eb=nullptr;  //for faulted rhs, b<- E'b
@@ -103,7 +106,7 @@ void MPI_ADLS_CG::solve(){
       ftn_loc = ftn_rcvcnt[rank];
 
       // update A
-      delete A; A =new MtxSpMPI(r_ft_fA_pool_.back().c_str(), rank, nproc);
+      delete A; A =new MtxSpMpi(r_ft_fA_pool_.back().c_str(), rank, nproc);
       r_ft_fA_pool_.pop_back();
       row_rcvcnt = &((A->get_row_rcvcnt())[0]);
       row_displs = &((A->get_row_displs())[0]);
@@ -256,7 +259,7 @@ void MPI_ADLS_CG::xloc2xglb(int nloc, double* xloc, int *row_rcvcnt, int*row_dis
 // ============================================================================
 // residual
 // ============================================================================
-double MPI_ADLS_CG::get_rtol_from_xloc(double *xloc, MtxSpMPI *A, int ftn, int ftn_loc, double* saved_xloc,  MtxDen*E, MtxDen*b){
+double MPI_ADLS_CG::get_rtol_from_xloc(double *xloc, MtxSpMpi *A, int ftn, int ftn_loc, double* saved_xloc,  MtxDen*E, MtxDen*b){
   int nloc = A->rows_loc();
   int* row_rcvcnt = &( (A->get_row_rcvcnt())[0] );
   int* row_displs = &( (A->get_row_displs())[0] );
@@ -318,7 +321,7 @@ void MPI_ADLS_CG::gather_solution(bool ft_happens, int ftn, MtxDen* E){
 
 
  /*
-void MPI_ADLS_CG::get_res(MtxSpMPI*org, double* bloc, double* Axloc){
+void MPI_ADLS_CG::get_res(MtxSpMpi*org, double* bloc, double* Axloc){
 
   double *x = &v_x_[0];
   org->Multiply_loc(x, Axloc);
@@ -351,7 +354,7 @@ MPI_ADLS_CG::MPI_ADLS_CG(const string &f_A, const string &f_E, const string &f_r
   A_(nullptr),
   b_(f_rhs)
 {
-  A_    = new MtxSpMPI(f_A, rank, nproc);
+  A_    = new MtxSpMpi(f_A, rank, nproc);
   Atut_ = new FTMtxMPI(f_A, f_E, rank, nproc, 0);
 
   int nloc = A_->rows_loc();

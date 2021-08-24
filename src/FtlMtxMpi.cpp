@@ -6,13 +6,14 @@
  ************************************************************************/
 
 #include "def.hpp"
-#include "ftmtx.hpp"
+#include "FtlMtxMpi.hpp"
+#include "MtxDen.hpp"
 //#include <algorithm> //min
 // ============================================================================
 // constructor
 // ============================================================================
 FTMtxMPI::FTMtxMPI(const string&file_A, const string&file_E, int rank, int nproc, int ftn) :
- MtxSpMPI(rank,nproc)
+ MtxSpMpi(rank,nproc)
 {
 
   
@@ -25,7 +26,7 @@ FTMtxMPI::FTMtxMPI(const string&file_A, const string&file_E, int rank, int nproc
   vector<int>&nE_displs = G_nE_displs_;
 
 
-  MtxSpMPI *A = new MtxSpMPI(file_A, rank_, nproc_);
+  MtxSpMpi *A = new MtxSpMpi(file_A, rank_, nproc_);
   MtxDen   *E = new MtxDen(file_E);
 
   if(A->rows() != E->rows()) error(file_A,"file_A rows != file_E rows ");

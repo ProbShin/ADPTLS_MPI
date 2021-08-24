@@ -1,7 +1,7 @@
 #ifndef MPI_MTX_FTOL_HPP
 #define MPI_MTX_FTOL_HPP
 
-#include "mtx_basic.hpp"
+#include "MtxSpMpi.hpp"
 using namespace std;
 
 // ============================================================================
@@ -53,7 +53,7 @@ using namespace std;
 //   local matrix (e.g. np0) is an nloc_ by k_ matrix
 // ============================================================================
 
-class FTMtxMPI : public MtxSpMPI{
+class FTMtxMPI : public MtxSpMpi{
 public: FTMtxMPI(const string&file_A, const string&file_E, int rnk, int np, int ftn=0); 
 virtual ~FTMtxMPI(){ //for(auto x: G) if(x) {delete []x; x=nullptr;}
 };
